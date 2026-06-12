@@ -1,0 +1,6 @@
+{
+  "name": "AluraFlix Membros",
+  "description": "Premium member streaming area platform blending the Netflix catalog experience with the Alura study player structure, tests, and certificates.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

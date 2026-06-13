@@ -15,6 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -22,6 +23,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { currentUser, activeScreen, navigateTo } = usePlatform();
+  const { logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
@@ -147,6 +149,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               </span>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="Sair da plataforma"
+            title="Sair"
+            className="hidden rounded-xl border border-transparent p-2 text-gray-500 transition hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-300 sm:block"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
 
         </div>
       </div>

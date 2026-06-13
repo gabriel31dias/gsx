@@ -13,9 +13,11 @@ import {
   ChevronRight,
   Sparkles,
   Layout,
-  Play
+  Play,
+  LogOut
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { currentUser, activeScreen, navigateTo, certificates, badges } = usePlatform();
+  const { logout } = useAuth();
 
   const navItems = [
     { id: 'home', label: 'Início & Catálogo', icon: Layout, desc: 'Aulas, ementas e trilhas' },
@@ -289,6 +292,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <p className="text-[8px] text-gray-500 uppercase tracking-wider mt-0.5 font-mono">Diplomas</p>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={logout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/15 bg-red-500/5 px-4 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/10"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair da plataforma
+            </button>
 
           </div>
         </div>

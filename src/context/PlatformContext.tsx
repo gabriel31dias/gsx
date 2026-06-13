@@ -8,9 +8,10 @@ import {
   Certificate, 
   Badge, 
   ActivityLog, 
-  Comment 
+  Comment,
+  Lesson
 } from '../types';
-import { INITIAL_COURSES } from '../data/courses';
+import { useAuth } from './AuthContext';
 
 interface PlatformContextProps {
   currentUser: UserProfile;
@@ -22,9 +23,15 @@ interface PlatformContextProps {
   badges: Badge[];
   activityLogs: ActivityLog[];
   favoriteCourseIds: string[];
+  coursesLoading: boolean;
+  coursesError: string | null;
+  lessonsLoadingCourseId: string | null;
+  lessonsError: string | null;
   activeScreen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans';
   activeCourseId: string | null;
   activeLessonId: string | null;
+  refreshCourses: () => Promise<void>;
+  loadCourseLessons: (courseId: string) => Promise<string | null>;
   
   // Navigation & View Actions
   navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans', courseId?: string | null, lessonId?: string | null) => void;
@@ -42,8 +49,8 @@ interface PlatformContextProps {
   checkAndUnlockBadges: () => void;
   
   // Learn Actions
-  updateLessonProgress: (courseId: string, lessonId: string, seconds: number, durationSeconds: number) => void;
-  markLessonComplete: (courseId: string, lessonId: string) => void;
+  updateLessonProgress: (courseId: string, lessonId: string, seconds: number, durationSeconds: number) => Promise<void>;
+  markLessonComplete: (courseId: string, lessonId: string) => Promise<void>;
   submitQuizAttempt: (courseId: string, quizId: string, answers: number[], score: number, passed: boolean) => void;
   addLessonComment: (courseId: string, lessonId: string, content: string) => void;
   
@@ -58,6 +65,110 @@ interface PlatformContextProps {
 }
 
 const PlatformContext = createContext<PlatformContextProps | undefined>(undefined);
+
+interface ApiCourse {
+  id: number;
+  title: string;
+  description: string;
+  photo_url: string | null;
+  total_lessons: number;
+  progress: {
+    completed_lessons: number;
+    percentage: number | string;
+    last_accessed_at: string | null;
+  };
+}
+
+interface CoursesResponse {
+  courses?: ApiCourse[];
+  message?: string;
+  error?: string;
+}
+
+interface ApiLesson {
+  id: number;
+  title: string;
+  description: string;
+  video_url: string;
+  video_file_url: string | null;
+  has_video: boolean;
+  order_number: number;
+  duration_minutes: number;
+  progress: {
+    completed: boolean;
+    watched_seconds: number;
+    completed_at: string | null;
+  };
+}
+
+interface LessonsResponse {
+  course_id?: number;
+  course_title?: string;
+  lessons?: ApiLesson[];
+  message?: string;
+  error?: string;
+}
+
+interface UpdateProgressResponse {
+  progress?: {
+    lesson_id: number;
+    completed: boolean;
+    watched_seconds: number;
+    completed_at: string | null;
+  };
+  message?: string;
+  error?: string;
+}
+
+const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const COURSE_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&auto=format&fit=crop&q=80',
+];
+
+const mapApiCourse = (course: ApiCourse, index: number): Course => ({
+  id: String(course.id),
+  title: course.title,
+  description: course.description,
+  instructor: 'Equipe AluraDev',
+  duration: 'Acesso sob demanda',
+  category: 'Desenvolvimento',
+  coverImage: course.photo_url
+    ? `${API_BASE_URL}${course.photo_url}`
+    : COURSE_FALLBACK_IMAGES[index % COURSE_FALLBACK_IMAGES.length],
+  modules: [],
+  rating: 4.8,
+  isTrending: index === 0,
+  isPopular: true,
+  totalLessons: course.total_lessons,
+  apiProgress: {
+    completedLessons: course.progress.completed_lessons,
+    percentage: Number(course.progress.percentage) || 0,
+    lastAccessedAt: course.progress.last_accessed_at,
+  },
+});
+
+const normalizeBackendUrl = (url: string | null) => {
+  if (!url) return null;
+
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.hostname === '127.0.0.1' || parsedUrl.hostname === 'localhost') {
+      return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
+  } catch {
+    return url;
+  }
+
+  return url;
+};
+
+const formatLessonDuration = (minutes: number) => {
+  if (minutes <= 0) return 'Duração não informada';
+  return `${minutes} min`;
+};
 
 const INITIAL_BADGES: Badge[] = [
   { id: 'first_step', title: 'Primeiro Passo', description: 'Assistiu à primeira aula do curso', iconName: 'Compass' },
@@ -119,11 +230,14 @@ const DEFAULT_USERS: UserProfile[] = [
 ];
 
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load or trigger initial state from LocalStorage
-  const [courses, setCourses] = useState<Course[]>(() => {
-    const saved = localStorage.getItem('aluraflix_courses');
-    return saved ? JSON.parse(saved) : INITIAL_COURSES;
-  });
+  const { session } = useAuth();
+  const authenticatedUser = session?.user;
+
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [coursesError, setCoursesError] = useState<string | null>(null);
+  const [lessonsLoadingCourseId, setLessonsLoadingCourseId] = useState<string | null>(null);
+  const [lessonsError, setLessonsError] = useState<string | null>(null);
 
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
     const saved = localStorage.getItem('aluraflix_users');
@@ -132,9 +246,19 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const saved = localStorage.getItem('aluraflix_curr_user');
-    if (saved) return JSON.parse(saved);
-    // default to student user
-    return DEFAULT_USERS[0];
+    const storedProfile = saved ? JSON.parse(saved) as UserProfile : DEFAULT_USERS[0];
+
+    if (!authenticatedUser) {
+      return storedProfile;
+    }
+
+    return {
+      ...storedProfile,
+      id: String(authenticatedUser.id),
+      name: authenticatedUser.name,
+      email: authenticatedUser.email,
+      role: authenticatedUser.role.toLowerCase() === 'admin' ? UserRole.ADMIN : UserRole.STUDENT,
+    };
   });
 
   const [progressList, setProgressList] = useState<CourseProgress[]>(() => {
@@ -175,11 +299,148 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 
-  // Sync to LS on change
-  useEffect(() => {
-    localStorage.setItem('aluraflix_courses', JSON.stringify(courses));
-  }, [courses]);
+  const refreshCourses = async () => {
+    if (!session?.token) {
+      setCourses([]);
+      setCoursesLoading(false);
+      return;
+    }
 
+    setCoursesLoading(true);
+    setCoursesError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/courses`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+        },
+      });
+      const data = (await response.json().catch(() => ({}))) as CoursesResponse;
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Não foi possível carregar os cursos.');
+      }
+
+      if (!Array.isArray(data.courses)) {
+        throw new Error('A API retornou uma listagem de cursos inválida.');
+      }
+
+      setCourses(data.courses.map(mapApiCourse));
+    } catch (error) {
+      setCourses([]);
+      setCoursesError(error instanceof Error ? error.message : 'Não foi possível carregar os cursos.');
+    } finally {
+      setCoursesLoading(false);
+    }
+  };
+
+  const loadCourseLessons = async (courseId: string) => {
+    if (!session?.token) {
+      throw new Error('Nenhuma sessão ativa.');
+    }
+
+    const existingCourse = courses.find((course) => course.id === courseId);
+    const existingFirstLesson = existingCourse?.modules[0]?.lessons[0];
+    if (existingFirstLesson) {
+      return existingFirstLesson.id;
+    }
+
+    setLessonsLoadingCourseId(courseId);
+    setLessonsError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/courses/${courseId}/lessons`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+        },
+      });
+      const data = (await response.json().catch(() => ({}))) as LessonsResponse;
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Não foi possível carregar as aulas.');
+      }
+
+      if (!Array.isArray(data.lessons)) {
+        throw new Error('A API retornou uma listagem de aulas inválida.');
+      }
+
+      const orderedLessons = [...data.lessons].sort((a, b) => a.order_number - b.order_number);
+      const lessons: Lesson[] = orderedLessons.map((lesson) => ({
+        id: String(lesson.id),
+        title: lesson.title,
+        description: lesson.description,
+        duration: formatLessonDuration(lesson.duration_minutes),
+        durationSeconds: lesson.duration_minutes > 0 ? lesson.duration_minutes * 60 : undefined,
+        progressSeconds: lesson.progress.watched_seconds,
+        videoUrl: normalizeBackendUrl(lesson.video_url) ?? '',
+        videoFileUrl: normalizeBackendUrl(lesson.video_file_url),
+        hasVideo: lesson.has_video,
+        orderNumber: lesson.order_number,
+        materials: [],
+        comments: [],
+      }));
+
+      setCourses((currentCourses) => currentCourses.map((course) => (
+        course.id === courseId
+          ? {
+              ...course,
+              title: data.course_title || course.title,
+              modules: [{
+                id: `course-${courseId}-lessons`,
+                title: 'Aulas do curso',
+                lessons,
+              }],
+            }
+          : course
+      )));
+
+      setProgressList((currentProgress) => {
+        const courseProgress = currentProgress.find((progress) => progress.courseId === courseId);
+        const completedLessons = lessons
+          .filter((_, index) => orderedLessons[index].progress.completed)
+          .map((lesson) => lesson.id);
+        const lessonProgress = Object.fromEntries(
+          lessons.map((lesson) => [lesson.id, lesson.progressSeconds ?? 0]),
+        );
+
+        if (!courseProgress) {
+          return [...currentProgress, { courseId, completedLessons, lessonProgress }];
+        }
+
+        return currentProgress.map((progress) => (
+          progress.courseId === courseId
+            ? { ...progress, completedLessons, lessonProgress }
+            : progress
+        ));
+      });
+
+      return lessons[0]?.id ?? null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível carregar as aulas.';
+      setLessonsError(message);
+      throw new Error(message);
+    } finally {
+      setLessonsLoadingCourseId(null);
+    }
+  };
+
+  useEffect(() => {
+    void refreshCourses();
+  }, [session?.token]);
+
+  useEffect(() => {
+    if (!authenticatedUser) return;
+
+    setCurrentUser((current) => ({
+      ...current,
+      id: String(authenticatedUser.id),
+      name: authenticatedUser.name,
+      email: authenticatedUser.email,
+      role: authenticatedUser.role.toLowerCase() === 'admin' ? UserRole.ADMIN : UserRole.STUDENT,
+    }));
+  }, [authenticatedUser]);
+
+  // Sync to LS on change
   useEffect(() => {
     localStorage.setItem('aluraflix_users', JSON.stringify(allUsers));
     // update current user in collection too
@@ -336,57 +597,131 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
-  const updateLessonProgress = (courseId: string, lessonId: string, seconds: number, durationSeconds: number) => {
-    setProgressList(prev => {
-      let match = prev.find(p => p.courseId === courseId);
-      if (!match) {
-        match = { courseId, completedLessons: [], lessonProgress: {} };
-        prev = [...prev, match];
+  const saveLessonProgress = async (
+    courseId: string,
+    lessonId: string,
+    watchedSeconds: number,
+    completed: boolean,
+  ) => {
+    if (!session?.token) {
+      throw new Error('Nenhuma sessão ativa.');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/lessons/${lessonId}/update_progress`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        watched_seconds: Math.max(0, Math.floor(watchedSeconds)),
+        completed,
+      }),
+    });
+    const data = (await response.json().catch(() => ({}))) as UpdateProgressResponse;
+
+    if (!response.ok || !data.progress) {
+      throw new Error(data.message || data.error || 'Não foi possível salvar o progresso da aula.');
+    }
+
+    const savedProgress = data.progress;
+    setProgressList((currentProgress) => {
+      const existing = currentProgress.find((progress) => progress.courseId === courseId);
+      const completedLessons = new Set<string>(existing?.completedLessons ?? []);
+
+      if (savedProgress.completed) {
+        completedLessons.add(lessonId);
+      } else {
+        completedLessons.delete(lessonId);
       }
 
-      match.lessonProgress[lessonId] = seconds;
-      
-      // Auto-complete at 90%
-      const percentagePlayed = (seconds / durationSeconds) * 100;
-      if (percentagePlayed >= 90 && !match.completedLessons.includes(lessonId)) {
-        match.completedLessons.push(lessonId);
-        addActivityLog('watch_lesson', `Aula concluída (90% est.): ${lessonId}`);
-        addPoints(50);
-        
-        // Trigger certificate check if all lessons are completed
-        setTimeout(() => checkCertificateEmission(courseId), 500);
-      }
+      const updated: CourseProgress = {
+        courseId,
+        completedLessons: [...completedLessons],
+        lessonProgress: {
+          ...(existing?.lessonProgress ?? {}),
+          [lessonId]: savedProgress.watched_seconds,
+        },
+      };
 
-      return [...prev];
+      return existing
+        ? currentProgress.map((progress) => progress.courseId === courseId ? updated : progress)
+        : [...currentProgress, updated];
     });
 
-    setTimeout(() => checkAndUnlockBadges(), 1000);
+    setCourses((currentCourses) => currentCourses.map((course) => {
+      if (course.id !== courseId) return course;
+
+      const modules = course.modules.map((module) => ({
+        ...module,
+        lessons: module.lessons.map((lesson) => (
+          lesson.id === lessonId
+            ? { ...lesson, progressSeconds: savedProgress.watched_seconds }
+            : lesson
+        )),
+      }));
+      const completedCount = modules
+        .flatMap((module) => module.lessons)
+        .filter((lesson) => (
+          lesson.id === lessonId
+            ? savedProgress.completed
+            : currentProgressForLesson(courseId, lesson.id)
+        )).length;
+      const totalLessons = course.totalLessons || modules.flatMap((module) => module.lessons).length;
+
+      return {
+        ...course,
+        modules,
+        apiProgress: {
+          completedLessons: completedCount,
+          percentage: totalLessons > 0 ? (completedCount / totalLessons) * 100 : 0,
+          lastAccessedAt: new Date().toISOString(),
+        },
+      };
+    }));
+
+    return savedProgress;
   };
 
-  const markLessonComplete = (courseId: string, lessonId: string) => {
-    setProgressList(prev => {
-      let match = prev.find(p => p.courseId === courseId);
-      if (!match) {
-        match = { courseId, completedLessons: [], lessonProgress: {} };
-        prev = [...prev, match];
-      }
+  const currentProgressForLesson = (courseId: string, lessonId: string) => (
+    progressList
+      .find((progress) => progress.courseId === courseId)
+      ?.completedLessons.includes(lessonId) ?? false
+  );
 
-      if (!match.completedLessons.includes(lessonId)) {
-        match.completedLessons.push(lessonId);
-        addActivityLog('watch_lesson', `Aula concluída manualmente: ${lessonId}`);
-        addPoints(50);
-        
-        // Check if all classes are done
-        setTimeout(() => checkCertificateEmission(courseId), 500);
-      } else {
-        // toggle off complete
-        match.completedLessons = match.completedLessons.filter(id => id !== lessonId);
-      }
+  const updateLessonProgress = async (
+    courseId: string,
+    lessonId: string,
+    seconds: number,
+    durationSeconds: number,
+  ) => {
+    const completed = durationSeconds > 0 && (seconds / durationSeconds) >= 0.9;
+    const wasCompleted = currentProgressForLesson(courseId, lessonId);
 
-      return [...prev];
-    });
+    await saveLessonProgress(courseId, lessonId, seconds, completed || wasCompleted);
 
-    setTimeout(() => checkAndUnlockBadges(), 1000);
+    if (completed && !wasCompleted) {
+      addActivityLog('watch_lesson', `Aula concluída: ${lessonId}`);
+      addPoints(50);
+      setTimeout(() => checkCertificateEmission(courseId), 500);
+      setTimeout(() => checkAndUnlockBadges(), 1000);
+    }
+  };
+
+  const markLessonComplete = async (courseId: string, lessonId: string) => {
+    const wasCompleted = currentProgressForLesson(courseId, lessonId);
+    const watchedSeconds = progressList
+      .find((progress) => progress.courseId === courseId)
+      ?.lessonProgress[lessonId] ?? 0;
+
+    await saveLessonProgress(courseId, lessonId, watchedSeconds, !wasCompleted);
+
+    if (!wasCompleted) {
+      addActivityLog('watch_lesson', `Aula concluída manualmente: ${lessonId}`);
+      addPoints(50);
+      setTimeout(() => checkCertificateEmission(courseId), 500);
+      setTimeout(() => checkAndUnlockBadges(), 1000);
+    }
   };
 
   // Certificate Automatic Emission when course complete
@@ -519,10 +854,16 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       badges,
       activityLogs,
       favoriteCourseIds,
+      coursesLoading,
+      coursesError,
+      lessonsLoadingCourseId,
+      lessonsError,
       activeScreen,
       activeCourseId,
       activeLessonId,
       
+      refreshCourses,
+      loadCourseLessons,
       navigateTo,
       updateProfile,
       changePassword,

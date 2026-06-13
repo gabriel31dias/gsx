@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePlatform } from '../context/PlatformContext';
-import { 
-  Play, 
+import {
+  Play,
   CheckCircle, 
   Circle, 
-  Clock, 
   ChevronDown, 
   ChevronUp, 
   Download, 
@@ -12,7 +11,6 @@ import {
   Award, 
   ArrowLeft, 
   ArrowRight,
-  Sparkles,
   HelpCircle,
   FileCode2,
   Tv
@@ -37,18 +35,20 @@ export const CoursePlayer: React.FC = () => {
   const [expandedModules, setExpandedModules] = useState<{ [id: string]: boolean }>({});
   const [activeTab, setActiveTab] = useState<'info' | 'material' | 'comments' | 'quiz'>('info');
   const [commentText, setCommentText] = useState('');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [duration] = useState(120); // mock seconds total duration
-  const [currentTime, setCurrentTime] = useState(0); // mock current seconds timer
   const [showCertificate, setShowCertificate] = useState(false);
+  const [showVideoPlayButton, setShowVideoPlayButton] = useState(true);
+  const [progressSaveState, setProgressSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [progressSaveError, setProgressSaveError] = useState('');
+  const [playbackSeconds, setPlaybackSeconds] = useState(0);
+  const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastSavedSecondRef = useRef(-1);
 
   // Quiz active state
   const [selectedAnswers, setSelectedAnswers] = useState<{ [qId: string]: number }>({});
   const [submittedQuiz, setSubmittedQuiz] = useState<boolean>(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [quizOutputMessage, setQuizOutputMessage] = useState<string>('');
-
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const course = courses.find(c => c.id === activeCourseId);
   const currentProgress = progressList.find(p => p.courseId === activeCourseId);
@@ -85,48 +85,22 @@ export const CoursePlayer: React.FC = () => {
     }
   }, [activeLessonId]);
 
-  // Video Playing simulator interval (auto triggers watch state)
+  // Reset lesson-specific interactions when navigating.
   useEffect(() => {
-    if (isPlaying && activeCourseId && activeLessonId) {
-      timerRef.current = setInterval(() => {
-        setCurrentTime(prev => {
-          const next = prev + 5; // advance 5s
-          if (next >= duration) {
-            setIsPlaying(false);
-            if (timerRef.current) clearInterval(timerRef.current);
-            // Completed!
-            markLessonComplete(activeCourseId, activeLessonId);
-            return duration;
-          }
-          // Emit progress update
-          updateLessonProgress(activeCourseId, activeLessonId, next, duration);
-          return next;
-        });
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isPlaying, activeCourseId, activeLessonId]);
-
-  // Reset clock when lesson changes
-  useEffect(() => {
-    setIsPlaying(false);
-    setCurrentTime(0);
+    setShowVideoPlayButton(true);
+    setProgressSaveState('idle');
+    setProgressSaveError('');
+    setPlaybackSeconds(
+      activeLessonId
+        ? currentProgress?.lessonProgress[activeLessonId] ?? activeLesson?.progressSeconds ?? 0
+        : 0,
+    );
+    setMediaDurationSeconds(activeLesson?.durationSeconds ?? 0);
+    lastSavedSecondRef.current = -1;
     setSubmittedQuiz(false);
     setSelectedAnswers({});
     setQuizScore(null);
     setQuizOutputMessage('');
-    
-    // Set some loaded mock times from progress
-    if (currentProgress && activeLessonId) {
-      const savedSecs = currentProgress.lessonProgress[activeLessonId] || 0;
-      setCurrentTime(savedSecs);
-    }
   }, [activeLessonId]);
 
   if (!course) {
@@ -169,8 +143,31 @@ export const CoursePlayer: React.FC = () => {
   // Progress metrics
   const totalLessonsCount = allLessons.length;
   const completedCount = currentProgress?.completedLessons.length || 0;
-  const progressPercentage = totalLessonsCount > 0 ? Math.round((completedCount / totalLessonsCount) * 100) : 0;
+  const getLessonProgressPercentage = (lesson: Lesson) => {
+    if (currentProgress?.completedLessons.includes(lesson.id)) return 100;
+
+    const watchedSeconds = lesson.id === activeLessonId
+      ? playbackSeconds
+      : currentProgress?.lessonProgress[lesson.id] ?? lesson.progressSeconds ?? 0;
+    const durationSeconds = lesson.id === activeLessonId
+      ? mediaDurationSeconds || lesson.durationSeconds || 0
+      : lesson.durationSeconds || 0;
+
+    if (durationSeconds <= 0) return watchedSeconds > 0 ? 1 : 0;
+    return Math.min(99, Math.round((watchedSeconds / durationSeconds) * 100));
+  };
+  const progressPercentage = totalLessonsCount > 0
+    ? Math.round(allLessons.reduce((total, lesson) => total + getLessonProgressPercentage(lesson), 0) / totalLessonsCount)
+    : 0;
   const isCourseFullyCompleted = completedCount >= totalLessonsCount && totalLessonsCount > 0;
+  const activeLessonProgress = activeLesson ? getLessonProgressPercentage(activeLesson) : 0;
+
+  const formatPlaybackTime = (seconds: number) => {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const minutes = Math.floor(safeSeconds / 60);
+    const remainingSeconds = safeSeconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const toggleModule = (id: string) => {
     setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
@@ -183,13 +180,34 @@ export const CoursePlayer: React.FC = () => {
     setCommentText('');
   };
 
-  // Simulating watch helper
-  const handleFastForwardSimulation = () => {
-    if (activeLesson) {
-      const triggerSecs = Math.round(duration * 0.92);
-      setCurrentTime(triggerSecs);
-      updateLessonProgress(course.id, activeLesson.id, triggerSecs, duration);
-      setIsPlaying(true);
+  const saveVideoProgress = async (seconds: number, totalSeconds: number) => {
+    if (!activeLesson || !course || totalSeconds <= 0) return;
+
+    setProgressSaveState('saving');
+    setProgressSaveError('');
+
+    try {
+      await updateLessonProgress(course.id, activeLesson.id, seconds, totalSeconds);
+      lastSavedSecondRef.current = seconds;
+      setProgressSaveState('saved');
+    } catch (error) {
+      setProgressSaveState('error');
+      setProgressSaveError(error instanceof Error ? error.message : 'Não foi possível salvar o progresso.');
+    }
+  };
+
+  const handleManualCompletion = async () => {
+    if (!activeLesson || !course) return;
+
+    setProgressSaveState('saving');
+    setProgressSaveError('');
+
+    try {
+      await markLessonComplete(course.id, activeLesson.id);
+      setProgressSaveState('saved');
+    } catch (error) {
+      setProgressSaveState('error');
+      setProgressSaveError(error instanceof Error ? error.message : 'Não foi possível salvar o status.');
     }
   };
 
@@ -245,37 +263,82 @@ export const CoursePlayer: React.FC = () => {
 
         {activeLesson ? (
           <div className="space-y-4">
-            {/* Visual Video Player Simulation with glowing backdrop overlay */}
+            {/* Real media player inside the existing visual frame */}
             <div className="relative aspect-[16/9] w-full bg-[#090d16] rounded-2xl overflow-hidden border border-[#1b253b]/80 shadow-2xl group/player">
-              
-              {isPlaying ? (
-                /* Interactive Simulated Video playing backdrop */
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-tr from-[#070a13] via-indigo-950/20 to-black overflow-hidden">
-                  <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#818cf8_1px,transparent_1px)] [background-size:20px_20px]" />
-                  <div className="z-10 text-center space-y-3">
-                    <div className="relative inline-flex mb-2">
-                      <span className="flex h-3 w-3 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500"></span>
-                      </span>
-                    </div>
-                    <p className="text-indigo-400 font-extrabold text-[10px] uppercase tracking-widest font-mono">TRANSMITINDO VÍDEO COMPILADO</p>
-                    <p className="font-bold text-gray-200 text-lg px-6 line-clamp-1">{activeLesson.title}</p>
-                    
-                    <p className="text-gray-400 font-mono text-xs pt-1">
-                      {Math.floor(currentTime / 60)}:{(currentTime % 60).toString().padStart(2, '0')} / {Math.floor(duration / 60)}:00
-                    </p>
-                    
-                    <button 
-                      onClick={() => setIsPlaying(false)}
-                      className="mt-4 bg-white text-black font-extrabold px-5 py-2 rounded-xl text-xs hover:bg-gray-100 transition cursor-pointer"
+              {activeLesson.videoFileUrl ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    key={activeLesson.id}
+                    className="h-full w-full bg-black object-contain"
+                    controls
+                    preload="metadata"
+                    poster={course.coverImage}
+                    onPlay={() => setShowVideoPlayButton(false)}
+                    onPause={(event) => {
+                      setShowVideoPlayButton(true);
+                      const seconds = Math.floor(event.currentTarget.currentTime);
+                      const totalSeconds = Math.floor(event.currentTarget.duration || activeLesson!.durationSeconds || 0);
+                      if (seconds > 0 && seconds !== lastSavedSecondRef.current) {
+                        void saveVideoProgress(seconds, totalSeconds);
+                      }
+                    }}
+                    onLoadedMetadata={(event) => {
+                      const savedSeconds = currentProgress?.lessonProgress[activeLesson!.id] ?? activeLesson!.progressSeconds ?? 0;
+                      setMediaDurationSeconds(Math.floor(event.currentTarget.duration || activeLesson!.durationSeconds || 0));
+                      setPlaybackSeconds(savedSeconds);
+                      if (savedSeconds > 0 && savedSeconds < event.currentTarget.duration) {
+                        event.currentTarget.currentTime = savedSeconds;
+                      }
+                    }}
+                    onTimeUpdate={(event) => {
+                      const seconds = Math.floor(event.currentTarget.currentTime);
+                      const totalSeconds = Math.floor(event.currentTarget.duration || activeLesson!.durationSeconds || 0);
+                      setPlaybackSeconds(seconds);
+                      setMediaDurationSeconds(totalSeconds);
+                      if (
+                        seconds > 0
+                        && totalSeconds > 0
+                        && seconds % 10 === 0
+                        && seconds !== lastSavedSecondRef.current
+                      ) {
+                        lastSavedSecondRef.current = seconds;
+                        void saveVideoProgress(seconds, totalSeconds);
+                      }
+                    }}
+                    onEnded={(event) => {
+                      setShowVideoPlayButton(true);
+                      const totalSeconds = Math.floor(event.currentTarget.duration || activeLesson!.durationSeconds || 0);
+                      setPlaybackSeconds(totalSeconds);
+                      setMediaDurationSeconds(totalSeconds);
+                      void saveVideoProgress(totalSeconds, totalSeconds);
+                    }}
+                  >
+                    <source src={activeLesson.videoFileUrl} />
+                    Seu navegador não suporta reprodução de vídeo.
+                  </video>
+
+                  {showVideoPlayButton && (
+                    <button
+                      type="button"
+                      onClick={() => void videoRef.current?.play()}
+                      aria-label="Reproduzir aula"
+                      className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-indigo-300/30 bg-indigo-600 text-white shadow-2xl shadow-indigo-950/60 transition hover:scale-110 hover:bg-indigo-500 active:scale-95 md:h-20 md:w-20"
                     >
-                      Pausar Vídeo
+                      <Play className="h-7 w-7 translate-x-0.5 fill-current md:h-9 md:w-9" />
                     </button>
-                  </div>
-                </div>
+                  )}
+                </>
+              ) : activeLesson.videoUrl ? (
+                <iframe
+                  key={activeLesson.id}
+                  src={activeLesson.videoUrl}
+                  title={activeLesson.title}
+                  className="h-full w-full border-0 bg-black"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
               ) : (
-                /* Video Poster Frame Screen */
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#090d16] overflow-hidden">
                   <img 
                     referrerPolicy="no-referrer"
@@ -286,38 +349,31 @@ export const CoursePlayer: React.FC = () => {
                   <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
                   
                   <div className="z-10 text-center flex flex-col items-center max-w-lg p-6">
-                    <button 
-                      onClick={() => setIsPlaying(true)}
-                      className="p-5 md:p-6 bg-indigo-600 hover:bg-indigo-550 rounded-full text-white hover:scale-105 active:scale-90 transition-all duration-300 cursor-pointer shadow-xl shadow-indigo-650/30 border border-indigo-400/20"
-                    >
-                      <Play className="w-6 h-6 fill-current text-white translate-x-0.5" />
-                    </button>
+                    <Tv className="h-10 w-10 text-gray-600" />
                     <p className="mt-4 font-bold text-sm md:text-base text-gray-200">{activeLesson.title}</p>
-                    <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-1 font-mono">
-                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                      Estimado em {activeLesson.duration} minutos de prática
-                    </p>
+                    <p className="mt-1 text-[11px] text-gray-500">Esta aula ainda não possui vídeo disponível.</p>
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* Player Sim Tools overlay index */}
-              <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between bg-[#0e1424]/90 backdrop-blur-md px-4 py-3 rounded-xl border border-[#1b253b] opacity-90 group-hover/player:opacity-100 transition-opacity">
-                <div className="flex items-center gap-2">
-                  <span className="text-[9px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded uppercase tracking-wider font-mono">
-                    HD Premium 1080p
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button 
-                    onClick={handleFastForwardSimulation}
-                    className="flex items-center gap-1.5 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all text-[10px] font-bold px-3 py-1.5 rounded-lg border border-indigo-500/25 cursor-pointer font-mono uppercase tracking-wider"
-                    title="Simular assistir 90% da aula para ganhar XP rapidamente"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Conclusão Rápida</span>
-                  </button>
-                </div>
+            <div className="rounded-xl border border-[#1b253b] bg-[#0e1424] px-4 py-3">
+              <div className="mb-2 flex items-center justify-between font-mono text-[10px]">
+                <span className="text-gray-400">
+                  {formatPlaybackTime(playbackSeconds)} / {formatPlaybackTime(mediaDurationSeconds || activeLesson.durationSeconds || 0)}
+                </span>
+                <span className="font-bold text-indigo-400">{activeLessonProgress}% assistido</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-[#090d16]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+                  style={{ width: `${activeLessonProgress}%` }}
+                />
+              </div>
+              <div className="mt-2 flex min-h-4 items-center justify-end font-mono text-[9px] uppercase tracking-wider">
+                {progressSaveState === 'saving' && <span className="text-indigo-300">Salvando progresso...</span>}
+                {progressSaveState === 'saved' && <span className="text-emerald-400">Progresso salvo</span>}
+                {progressSaveState === 'error' && <span className="text-red-400">{progressSaveError}</span>}
               </div>
             </div>
 
@@ -334,7 +390,8 @@ export const CoursePlayer: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => markLessonComplete(course.id, activeLesson!.id)}
+                onClick={() => void handleManualCompletion()}
+                disabled={progressSaveState === 'saving'}
                 className={`col-span-2 order-first sm:order-none w-full sm:w-auto flex items-center justify-center gap-2 text-xs font-bold px-4 py-2 border rounded-xl transition-all cursor-pointer ${
                   currentProgress?.completedLessons.includes(activeLesson.id)
                   ? 'bg-emerald-600/20 border-emerald-500/30 text-emerald-400'
@@ -649,6 +706,7 @@ export const CoursePlayer: React.FC = () => {
                       {mod.lessons.map(les => {
                         const isSelected = les.id === activeLessonId;
                         const isDone = currentProgress?.completedLessons.includes(les.id);
+                        const lessonProgressPercentage = getLessonProgressPercentage(les);
                         
                         return (
                           <div
@@ -671,7 +729,20 @@ export const CoursePlayer: React.FC = () => {
                               
                               <div className="text-xs">
                                 <p className={`font-medium line-clamp-2 ${isSelected ? 'text-indigo-305 text-indigo-300 font-bold' : 'text-gray-300'}`}>{les.title}</p>
-                                <span className="text-[10px] text-gray-500 block font-mono mt-0.5">{les.duration}</span>
+                                <div className="mt-1 flex items-center justify-between gap-3 font-mono text-[9px] text-gray-500">
+                                  <span>{les.duration}</span>
+                                  <span className={lessonProgressPercentage > 0 ? 'text-indigo-400' : ''}>
+                                    {lessonProgressPercentage}%
+                                  </span>
+                                </div>
+                                <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#090d16]">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isDone ? 'bg-emerald-500' : 'bg-indigo-500'
+                                    }`}
+                                    style={{ width: `${lessonProgressPercentage}%` }}
+                                  />
+                                </div>
                               </div>
                             </div>
                           </div>

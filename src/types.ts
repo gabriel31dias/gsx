@@ -19,6 +19,9 @@ export interface Lesson {
   comments: Comment[];
   progressSeconds?: number;
   durationSeconds?: number; // total duration
+  videoFileUrl?: string | null;
+  hasVideo?: boolean;
+  orderNumber?: number;
 }
 
 export interface Comment {
@@ -73,6 +76,12 @@ export interface Course {
   rating: number; // e.g. 4.8
   isTrending?: boolean;
   isPopular?: boolean;
+  totalLessons?: number;
+  apiProgress?: {
+    completedLessons: number;
+    percentage: number;
+    lastAccessedAt: string | null;
+  };
 }
 
 export interface CourseProgress {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Course } from '../types';
 import { Play, Heart, Star, BookOpen, Clock, ChevronRight } from 'lucide-react';
 import { usePlatform } from '../context/PlatformContext';
@@ -10,11 +10,23 @@ interface CourseCarouselProps {
 }
 
 export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesList, emptyMessage = "Nenhum curso disponível nesta categoria." }) => {
-  const { progressList, favoriteCourseIds, toggleFavorite, navigateTo } = usePlatform();
+  const {
+    progressList,
+    favoriteCourseIds,
+    toggleFavorite,
+    navigateTo,
+    loadCourseLessons,
+    lessonsLoadingCourseId,
+  } = usePlatform();
+  const [openError, setOpenError] = useState<string | null>(null);
 
   const getCourseProgressPercentage = (courseId: string) => {
     const course = coursesList.find(c => c.id === courseId);
     if (!course) return 0;
+
+    if (course.apiProgress) {
+      return Math.min(Math.max(Math.round(course.apiProgress.percentage), 0), 100);
+    }
     
     let totalLessons = 0;
     course.modules.forEach(m => totalLessons += m.lessons.length);
@@ -26,10 +38,15 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
     return Math.round((userProg.completedLessons.length / totalLessons) * 100);
   };
 
-  const handleStartCourse = (course: Course) => {
-    const firstMod = course.modules[0];
-    const firstLes = firstMod?.lessons[0];
-    navigateTo('learning', course.id, firstLes?.id || null);
+  const handleStartCourse = async (course: Course) => {
+    setOpenError(null);
+
+    try {
+      const firstLessonId = await loadCourseLessons(course.id);
+      navigateTo('learning', course.id, firstLessonId);
+    } catch (error) {
+      setOpenError(error instanceof Error ? error.message : 'Não foi possível abrir o curso.');
+    }
   };
 
   return (
@@ -56,11 +73,18 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
             <p className="text-xs text-gray-500 italic">{emptyMessage}</p>
           </div>
         ) : (
+          <>
+          {openError && (
+            <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+              {openError}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {coursesList.map((course) => {
               const progressPct = getCourseProgressPercentage(course.id);
               const isFav = favoriteCourseIds.includes(course.id);
-              const lessonsCount = course.modules.reduce((sum, mod) => sum + mod.lessons.length, 0);
+              const lessonsCount = course.totalLessons ?? course.modules.reduce((sum, mod) => sum + mod.lessons.length, 0);
+              const isOpening = lessonsLoadingCourseId === course.id;
 
               return (
                 <div 
@@ -84,6 +108,7 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
                     <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
                       <button 
                         onClick={() => handleStartCourse(course)}
+                        disabled={isOpening}
                         className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer border border-indigo-400/25"
                         title="Ver Curso"
                       >
@@ -164,9 +189,10 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
                       {/* Continuous learning action button */}
                       <button 
                         onClick={() => handleStartCourse(course)}
-                        className="w-full bg-[#121829] hover:bg-indigo-600 border border-[#1b253b] hover:border-indigo-400 text-gray-300 hover:text-white font-bold text-xs py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
+                        disabled={isOpening}
+                        className="w-full bg-[#121829] enabled:hover:bg-indigo-600 border border-[#1b253b] enabled:hover:border-indigo-400 text-gray-300 enabled:hover:text-white font-bold text-xs py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 enabled:cursor-pointer disabled:cursor-not-allowed disabled:text-gray-500"
                       >
-                        {progressPct > 0 ? 'Retomar Aula' : 'Iniciar Aula'}
+                        {isOpening ? 'Carregando aulas...' : progressPct > 0 ? 'Retomar Aula' : 'Acessar curso'}
                         <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -175,6 +201,7 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
               );
             })}
           </div>
+          </>
         )}
       </div>
     </div>

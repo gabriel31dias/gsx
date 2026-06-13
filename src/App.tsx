@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { PlatformProvider, usePlatform } from './context/PlatformContext';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
@@ -15,9 +16,16 @@ import { AdminPanel } from './components/AdminPanel';
 import { LiveStreamArea } from './components/LiveStreamArea';
 import { GamificationRanking } from './components/GamificationRanking';
 import { PlansArea } from './components/PlansArea';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginScreen } from './components/LoginScreen';
 
 function DashboardScreen() {
-  const { courses, progressList, favoriteCourseIds } = usePlatform();
+  const {
+    courses,
+    coursesLoading,
+    coursesError,
+    refreshCourses,
+  } = usePlatform();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Search Filter logic on title/description/instructor/category
@@ -28,13 +36,41 @@ function DashboardScreen() {
     c.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Continue watching filter
-  const continueWatching = courses.filter(c => {
-    const prog = progressList.find(p => p.courseId === c.id);
-    return prog && (prog.completedLessons.length > 0 || Object.keys(prog.lessonProgress).length > 0);
-  });
+  if (coursesLoading) {
+    return (
+      <div className="min-h-[calc(100vh-64px)] bg-[#070a13] px-4 py-12 text-white lg:px-10">
+        <div className="mx-auto max-w-7xl animate-pulse">
+          <div className="mb-10 h-52 rounded-3xl border border-[#1b253b] bg-[#0e1424]" />
+          <div className="mb-5 h-6 w-52 rounded-lg bg-[#12192c]" />
+          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="h-96 rounded-2xl border border-[#1b253b] bg-[#0e1424]" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const popularCourses = courses.filter(c => c.isPopular);
+  if (coursesError) {
+    return (
+      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#070a13] px-5 text-white">
+        <div className="max-w-md rounded-3xl border border-red-500/20 bg-[#0e1424] p-8 text-center">
+          <AlertCircle className="mx-auto mb-4 h-9 w-9 text-red-400" />
+          <h2 className="text-lg font-extrabold">Não foi possível carregar os cursos</h2>
+          <p className="mt-2 text-sm leading-6 text-gray-400">{coursesError}</p>
+          <button
+            type="button"
+            onClick={() => void refreshCourses()}
+            className="mx-auto mt-6 flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-xs font-bold transition hover:bg-indigo-500"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#070a13] text-white min-h-screen pb-20 space-y-6">
@@ -52,44 +88,11 @@ function DashboardScreen() {
           />
         </div>
       ) : (
-        /* STANDARD DYNAMIC STREAM CAROUSELS */
-        <div className="space-y-4 -mt-16 md:-mt-24 relative z-20 animate-fadeIn flex flex-col gap-6">
-          
-          {/* Section: CONTINUE WATCHING */}
-          {continueWatching.length > 0 && (
-            <div className="bg-gradient-to-b from-transparent to-[#070a13]/55">
-              <CourseCarousel 
-                title="Continuar Assistindo" 
-                coursesList={continueWatching} 
-              />
-            </div>
-          )}
-
-          {/* Section: MOST POPULAR */}
-          <CourseCarousel 
-            title="Aulas em Alta e Populares" 
-            coursesList={popularCourses} 
+        <div className="relative z-20 -mt-16 animate-fadeIn md:-mt-24">
+          <CourseCarousel
+            title="Cursos disponíveis"
+            coursesList={courses}
           />
-
-          {/* Section: FAVORITES ROW */}
-          {favoriteCourseIds.length > 0 && (
-            <CourseCarousel 
-              title="Sua Lista de Estudos" 
-              coursesList={courses.filter(c => favoriteCourseIds.includes(c.id))} 
-            />
-          )}
-
-          {/* Section: OTHER CATEGORIES SPLIT GROUPS */}
-          <CourseCarousel 
-            title="Novidades de Engenharia e IA" 
-            coursesList={courses.filter(c => c.category === 'Data & AI' || c.category === 'Backend')} 
-          />
-
-          <CourseCarousel 
-            title="Frontend & UI/UX Especializações" 
-            coursesList={courses.filter(c => c.category === 'Frontend' || c.category === 'Design')} 
-          />
-
         </div>
       )}
 
@@ -132,10 +135,37 @@ function MainScreenShell() {
   );
 }
 
-export default function App() {
+function AuthenticatedApp() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#070a13] text-white">
+        <div className="flex flex-col items-center gap-4">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-400/25 border-t-indigo-400" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-gray-500">
+            Validando sessão
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
   return (
     <PlatformProvider>
       <MainScreenShell />
     </PlatformProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
   );
 }

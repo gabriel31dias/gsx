@@ -242,7 +242,7 @@ export const CoursePlayer: React.FC = () => {
   };
 
   return (
-    <div className="bg-[#070a13] min-h-screen text-white flex flex-col lg:flex-row pb-12 animate-fadeIn text-left">
+    <div className="theme-background min-h-screen text-white flex flex-col lg:flex-row pb-12 animate-fadeIn text-left">
       {/* LEFT AREA: Player & interactive tabs */}
       <div className="flex-1 lg:max-w-[72%] p-4 lg:p-8 space-y-6">
         
@@ -323,7 +323,7 @@ export const CoursePlayer: React.FC = () => {
                       type="button"
                       onClick={() => void videoRef.current?.play()}
                       aria-label="Reproduzir aula"
-                      className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-indigo-300/30 bg-indigo-600 text-white shadow-2xl shadow-indigo-950/60 transition hover:scale-110 hover:bg-indigo-500 active:scale-95 md:h-20 md:w-20"
+                      className="theme-primary-bg theme-primary-border absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-white shadow-2xl transition hover:scale-110 hover:brightness-110 active:scale-95 md:h-20 md:w-20"
                     >
                       <Play className="h-7 w-7 translate-x-0.5 fill-current md:h-9 md:w-9" />
                     </button>
@@ -366,7 +366,7 @@ export const CoursePlayer: React.FC = () => {
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-[#090d16]">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300"
+                  className="theme-gradient h-full rounded-full transition-all duration-300"
                   style={{ width: `${activeLessonProgress}%` }}
                 />
               </div>
@@ -651,7 +651,7 @@ export const CoursePlayer: React.FC = () => {
             <div className="space-y-2">
               <div className="w-full bg-[#090d16] h-1.5 rounded-full overflow-hidden">
                 <div 
-                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-500" 
+                  className="theme-gradient h-full rounded-full transition-all duration-500"
                   style={{ width: `${progressPercentage}%` }}
                 />
               </div>
@@ -665,7 +665,7 @@ export const CoursePlayer: React.FC = () => {
           {isCourseFullyCompleted ? (
             <button
               onClick={() => setShowCertificate(true)}
-              className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-650 text-white font-extrabold text-xs py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/20 border-none hover:-translate-y-0.5 transition-all duration-200"
+              className="theme-gradient w-full text-white font-extrabold text-xs py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg border-none hover:-translate-y-0.5 transition-all duration-200"
             >
               <Award className="w-4 h-4 animate-spin-slow" />
               EMITIR DIPLOMA DIGITAL
@@ -738,7 +738,7 @@ export const CoursePlayer: React.FC = () => {
                                 <div className="mt-1 h-1 overflow-hidden rounded-full bg-[#090d16]">
                                   <div
                                     className={`h-full rounded-full transition-all duration-300 ${
-                                      isDone ? 'bg-emerald-500' : 'bg-indigo-500'
+                                      isDone ? 'bg-emerald-500' : 'theme-primary-bg'
                                     }`}
                                     style={{ width: `${lessonProgressPercentage}%` }}
                                   />

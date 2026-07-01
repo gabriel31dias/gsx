@@ -77,6 +77,8 @@ export interface Course {
   isTrending?: boolean;
   isPopular?: boolean;
   totalLessons?: number;
+  isLocked?: boolean;
+  requiredPlans?: { id: string; name: string }[];
   apiProgress?: {
     completedLessons: number;
     percentage: number;
@@ -119,14 +121,17 @@ export interface Badge {
   title: string;
   description: string;
   iconName: string;
+  icon?: string;
   unlockedAt?: string;
 }
 
 export interface ActivityLog {
   id: string;
-  type: 'watch_lesson' | 'quiz_completed' | 'badge_unlocked' | 'certificate_issued' | 'payment_made';
+  type: string;
+  title?: string;
   description: string;
   date: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PaymentMethod {

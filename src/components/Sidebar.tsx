@@ -11,13 +11,13 @@ import {
   Flame, 
   User, 
   ChevronRight,
-  Sparkles,
   Layout,
   Play,
   LogOut
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { BrandLogo } from './BrandLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -50,17 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               className="flex items-center gap-3 cursor-pointer group px-2 pt-2"
               id="sidebar-logo"
             >
-              <div className="bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-2.5 rounded-xl shadow-lg shadow-indigo-500/20 group-hover:rotate-3 group-hover:scale-105 transition-all duration-300">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-extrabold tracking-tight text-white leading-none">
-                  ALURA<span className="text-indigo-400 font-extrabold uppercase ml-0.5">DEV</span>
-                </span>
-                <span className="text-[10px] text-gray-500 font-medium tracking-widest mt-1">
-                  HUB DE CARREIRA
-                </span>
-              </div>
+              <BrandLogo />
             </div>
 
             {/* Quick Micro Profile Progress details */}
@@ -96,7 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
                 <div className="w-full bg-[#162136] h-1.5 rounded-full overflow-hidden">
                   <div 
-                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-300"
+                    className="theme-gradient h-full rounded-full transition-all duration-300"
                     style={{ width: `${Math.min((currentUser.points / 2000) * 100, 100)}%` }}
                   />
                 </div>
@@ -194,14 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             className="w-80 max-w-[85vw] bg-[#090d16] border-r border-[#1b253b] h-full flex flex-col justify-between p-5 space-y-6 text-white absolute left-0 top-0 bottom-0 animate-slideRight"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-2 rounded-xl shadow">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <span className="text-base font-extrabold tracking-tight text-white">
-                  ALURA<span className="text-indigo-400">DEV</span>
-                </span>
-              </div>
+              <BrandLogo compact showSubtitle={false} />
               <button 
                 onClick={onClose}
                 className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition cursor-pointer"

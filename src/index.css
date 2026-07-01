@@ -6,6 +6,172 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+:root {
+  --theme-primary: #6366f1;
+  --theme-secondary: #a855f7;
+  --theme-background: #070a13;
+  --theme-surface: #0e1424;
+  --theme-text: #f9fafb;
+  --theme-muted-text: #9ca3af;
+}
+
+body {
+  background: var(--theme-background);
+  color: var(--theme-text);
+}
+
+.theme-background {
+  background-color: var(--theme-background);
+}
+
+.theme-primary-bg {
+  background-color: var(--theme-primary);
+}
+
+.theme-primary-text {
+  color: var(--theme-primary);
+}
+
+.theme-primary-border {
+  border-color: color-mix(in srgb, var(--theme-primary) 45%, transparent);
+}
+
+.theme-surface {
+  background-color: var(--theme-surface);
+}
+
+.theme-text {
+  color: var(--theme-text);
+}
+
+.theme-muted-text {
+  color: var(--theme-muted-text);
+}
+
+.theme-gradient {
+  background-image: linear-gradient(90deg, var(--theme-primary), var(--theme-secondary));
+}
+
+.theme-gradient-text {
+  background-image: linear-gradient(90deg, var(--theme-primary), var(--theme-secondary));
+  background-clip: text;
+  color: transparent;
+}
+
+.theme-glow-primary {
+  background-color: var(--theme-primary);
+}
+
+.theme-glow-secondary {
+  background-color: var(--theme-secondary);
+}
+
+/*
+ * Compatibility layer for the existing design system. It maps the original
+ * dark palette to the six owner-configurable theme tokens.
+ */
+.dynamic-theme .bg-\[\#070a13\],
+.dynamic-theme .bg-\[\#09090b\] {
+  background-color: var(--theme-background) !important;
+}
+
+.dynamic-theme [class*="bg-[#070a13]"],
+.dynamic-theme [class*="bg-[#09090b]"] {
+  background-color: var(--theme-background) !important;
+}
+
+.dynamic-theme .bg-\[\#090d16\],
+.dynamic-theme .bg-\[\#090c15\],
+.dynamic-theme .bg-\[\#0a0e19\],
+.dynamic-theme .bg-\[\#0b101e\],
+.dynamic-theme .bg-\[\#0c1221\] {
+  background-color: color-mix(in srgb, var(--theme-surface) 72%, var(--theme-background)) !important;
+}
+
+.dynamic-theme [class*="bg-[#090d16]"],
+.dynamic-theme [class*="bg-[#090c15]"],
+.dynamic-theme [class*="bg-[#0a0e19]"],
+.dynamic-theme [class*="bg-[#0b101e]"],
+.dynamic-theme [class*="bg-[#0c1221]"] {
+  background-color: color-mix(in srgb, var(--theme-surface) 72%, var(--theme-background)) !important;
+}
+
+.dynamic-theme .bg-\[\#0e1424\],
+.dynamic-theme .bg-\[\#0e1626\],
+.dynamic-theme .bg-\[\#0f1626\],
+.dynamic-theme .bg-\[\#121215\],
+.dynamic-theme .bg-\[\#121829\],
+.dynamic-theme .bg-\[\#12192c\],
+.dynamic-theme .bg-\[\#12192d\] {
+  background-color: var(--theme-surface) !important;
+}
+
+.dynamic-theme [class*="bg-[#0e1424]"],
+.dynamic-theme [class*="bg-[#0e1626]"],
+.dynamic-theme [class*="bg-[#0f1626]"],
+.dynamic-theme [class*="bg-[#121215]"],
+.dynamic-theme [class*="bg-[#121829]"],
+.dynamic-theme [class*="bg-[#12192c]"],
+.dynamic-theme [class*="bg-[#12192d]"] {
+  background-color: var(--theme-surface) !important;
+}
+
+.dynamic-theme .text-white,
+.dynamic-theme .text-gray-100,
+.dynamic-theme .text-gray-150,
+.dynamic-theme .text-gray-200,
+.dynamic-theme .text-gray-205,
+.dynamic-theme .text-gray-300,
+.dynamic-theme .text-gray-305 {
+  color: var(--theme-text) !important;
+}
+
+.dynamic-theme .text-gray-350,
+.dynamic-theme .text-gray-400,
+.dynamic-theme .text-gray-405,
+.dynamic-theme .text-gray-450,
+.dynamic-theme .text-gray-455,
+.dynamic-theme .text-gray-500,
+.dynamic-theme .text-gray-550,
+.dynamic-theme .text-gray-600 {
+  color: var(--theme-muted-text) !important;
+}
+
+.dynamic-theme .border-\[\#1b253b\],
+.dynamic-theme .border-\[\#1a2333\],
+.dynamic-theme .border-\[\#1b263b\],
+.dynamic-theme .border-\[\#1e2a42\],
+.dynamic-theme .border-\[\#202b42\] {
+  border-color: color-mix(in srgb, var(--theme-muted-text) 25%, transparent) !important;
+}
+
+.dynamic-theme [class*="border-[#1b253b]"],
+.dynamic-theme [class*="border-[#1a2333]"],
+.dynamic-theme [class*="border-[#1b263b]"],
+.dynamic-theme [class*="border-[#1e2a42]"],
+.dynamic-theme [class*="border-[#202b42]"] {
+  border-color: color-mix(in srgb, var(--theme-muted-text) 25%, transparent) !important;
+}
+
+.dynamic-theme .bg-indigo-600,
+.dynamic-theme .bg-indigo-500 {
+  background-color: var(--theme-primary) !important;
+}
+
+.dynamic-theme .text-indigo-300,
+.dynamic-theme .text-indigo-400 {
+  color: var(--theme-primary) !important;
+}
+
+.dynamic-theme .border-indigo-500 {
+  border-color: var(--theme-primary) !important;
+}
+
+.dynamic-theme .bg-purple-500,
+.dynamic-theme .bg-purple-600 {
+  background-color: var(--theme-secondary) !important;
+}
+
 /* Custom premium scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
@@ -22,7 +188,7 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4338ca;
+  background: var(--theme-primary);
 }
 
 @keyframes fadeIn {

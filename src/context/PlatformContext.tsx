@@ -22,6 +22,10 @@ interface PlatformContextProps {
   certificates: Certificate[];
   badges: Badge[];
   activityLogs: ActivityLog[];
+  activitiesLoading: boolean;
+  activitiesError: string | null;
+  achievementsLoading: boolean;
+  achievementsError: string | null;
   favoriteCourseIds: string[];
   coursesLoading: boolean;
   coursesError: string | null;
@@ -32,6 +36,8 @@ interface PlatformContextProps {
   activeLessonId: string | null;
   refreshCourses: () => Promise<void>;
   loadCourseLessons: (courseId: string) => Promise<string | null>;
+  refreshActivities: () => Promise<void>;
+  refreshAchievements: () => Promise<void>;
   
   // Navigation & View Actions
   navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans', courseId?: string | null, lessonId?: string | null) => void;
@@ -72,6 +78,8 @@ interface ApiCourse {
   description: string;
   photo_url: string | null;
   total_lessons: number;
+  has_access?: boolean;
+  plans?: { id: number; name: string }[];
   progress: {
     completed_lessons: number;
     percentage: number | string;
@@ -120,6 +128,21 @@ interface UpdateProgressResponse {
   error?: string;
 }
 
+interface ApiActivity {
+  id: number;
+  type: string;
+  title: string;
+  description: string;
+  occurred_at: string;
+  metadata: Record<string, unknown>;
+}
+
+interface ActivitiesResponse {
+  activities?: ApiActivity[];
+  message?: string;
+  error?: string;
+}
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const COURSE_FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80',
@@ -143,6 +166,8 @@ const mapApiCourse = (course: ApiCourse, index: number): Course => ({
   isTrending: index === 0,
   isPopular: true,
   totalLessons: course.total_lessons,
+  isLocked: course.has_access === false,
+  requiredPlans: (course.plans ?? []).map((plan) => ({ id: String(plan.id), name: plan.name })),
   apiProgress: {
     completedLessons: course.progress.completed_lessons,
     percentage: Number(course.progress.percentage) || 0,
@@ -168,6 +193,10 @@ const normalizeBackendUrl = (url: string | null) => {
 const formatLessonDuration = (minutes: number) => {
   if (minutes <= 0) return 'Duração não informada';
   return `${minutes} min`;
+};
+
+const ACHIEVEMENT_KEY_ALIASES: Record<string, string> = {
+  graduate: 'graduated',
 };
 
 const INITIAL_BADGES: Badge[] = [
@@ -281,13 +310,11 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return saved ? JSON.parse(saved) : INITIAL_BADGES;
   });
 
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => {
-    const saved = localStorage.getItem('aluraflix_activity_logs');
-    if (saved) return JSON.parse(saved);
-    return [
-      { id: 'act-init', type: 'payment_made', description: 'Assinatura Premium iniciada', date: '31/05/2026 19:30' }
-    ];
-  });
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [achievementsLoading, setAchievementsLoading] = useState(false);
+  const [achievementsError, setAchievementsError] = useState<string | null>(null);
 
   const [favoriteCourseIds, setFavoriteCourseIds] = useState<string[]>(() => {
     const saved = localStorage.getItem('aluraflix_favorites');
@@ -331,6 +358,123 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCoursesError(error instanceof Error ? error.message : 'Não foi possível carregar os cursos.');
     } finally {
       setCoursesLoading(false);
+    }
+  };
+
+  const refreshActivities = async () => {
+    if (!session?.token) {
+      setActivityLogs([]);
+      return;
+    }
+
+    setActivitiesLoading(true);
+    setActivitiesError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/activities?limit=10`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+        },
+      });
+      const data = (await response.json().catch(() => ({}))) as ActivitiesResponse;
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Não foi possível carregar as atividades.');
+      }
+
+      if (!Array.isArray(data.activities)) {
+        throw new Error('A API retornou um histórico de atividades inválido.');
+      }
+
+      setActivityLogs(data.activities.map((activity) => ({
+        id: String(activity.id),
+        type: activity.type,
+        title: activity.title,
+        description: activity.description,
+        date: activity.occurred_at,
+        metadata: activity.metadata,
+      })));
+    } catch (error) {
+      setActivitiesError(error instanceof Error ? error.message : 'Não foi possível carregar as atividades.');
+    } finally {
+      setActivitiesLoading(false);
+    }
+  };
+
+  const refreshAchievements = async () => {
+    if (!session?.token) {
+      setBadges(INITIAL_BADGES);
+      return;
+    }
+
+    setAchievementsLoading(true);
+    setAchievementsError(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/activities?limit=100`, {
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+        },
+      });
+      const data = (await response.json().catch(() => ({}))) as ActivitiesResponse;
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Não foi possível carregar as conquistas.');
+      }
+
+      if (!Array.isArray(data.activities)) {
+        throw new Error('A API retornou uma listagem de conquistas inválida.');
+      }
+
+      const achievementActivities = data.activities.filter(
+        (activity) => activity.type === 'achievement_unlocked',
+      );
+      const unlockedByKey = new Map<string, ApiActivity>();
+
+      achievementActivities.forEach((activity) => {
+        const key = activity.metadata?.achievement_key;
+        if (typeof key === 'string') {
+          const normalizedKey = ACHIEVEMENT_KEY_ALIASES[key] ?? key;
+          if (!unlockedByKey.has(normalizedKey)) {
+            unlockedByKey.set(normalizedKey, activity);
+          }
+        }
+      });
+
+      const syncedBadges = INITIAL_BADGES.map((badge) => {
+        const activity = unlockedByKey.get(badge.id);
+        if (!activity) return { ...badge, unlockedAt: undefined, icon: undefined };
+
+        const name = activity.metadata?.name;
+        const icon = activity.metadata?.icon;
+        unlockedByKey.delete(badge.id);
+
+        return {
+          ...badge,
+          title: typeof name === 'string' ? name : badge.title,
+          icon: typeof icon === 'string' ? icon : undefined,
+          unlockedAt: activity.occurred_at,
+        };
+      });
+
+      unlockedByKey.forEach((activity, key) => {
+        const name = activity.metadata?.name;
+        const icon = activity.metadata?.icon;
+        syncedBadges.push({
+          id: key,
+          title: typeof name === 'string' ? name : activity.title,
+          description: activity.description,
+          iconName: 'Award',
+          icon: typeof icon === 'string' ? icon : undefined,
+          unlockedAt: activity.occurred_at,
+        });
+      });
+
+      setBadges(syncedBadges);
+    } catch (error) {
+      setAchievementsError(error instanceof Error ? error.message : 'Não foi possível carregar as conquistas.');
+    } finally {
+      setAchievementsLoading(false);
     }
   };
 
@@ -469,10 +613,6 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     localStorage.setItem('aluraflix_badges', JSON.stringify(badges));
   }, [badges]);
-
-  useEffect(() => {
-    localStorage.setItem('aluraflix_activity_logs', JSON.stringify(activityLogs));
-  }, [activityLogs]);
 
   useEffect(() => {
     localStorage.setItem('aluraflix_favorites', JSON.stringify(favoriteCourseIds));
@@ -853,6 +993,10 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       certificates,
       badges,
       activityLogs,
+      activitiesLoading,
+      activitiesError,
+      achievementsLoading,
+      achievementsError,
       favoriteCourseIds,
       coursesLoading,
       coursesError,
@@ -864,6 +1008,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       refreshCourses,
       loadCourseLessons,
+      refreshActivities,
+      refreshAchievements,
       navigateTo,
       updateProfile,
       changePassword,

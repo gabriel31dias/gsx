@@ -9,12 +9,12 @@ import {
   LockKeyhole,
   Mail,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { BrandLogo } from './BrandLogo';
 
 export const LoginScreen: React.FC = () => {
-  const { login } = useAuth();
+  const { login, theme } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -36,29 +36,17 @@ export const LoginScreen: React.FC = () => {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#070a13] text-white selection:bg-indigo-500 selection:text-white">
+    <main className="theme-background relative min-h-screen overflow-hidden text-white selection:text-white">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 top-[-10rem] h-[30rem] w-[30rem] rounded-full bg-indigo-600/20 blur-[140px]" />
-        <div className="absolute -bottom-44 right-[-8rem] h-[34rem] w-[34rem] rounded-full bg-purple-600/15 blur-[150px]" />
+        <div className="theme-glow-primary absolute -left-32 top-[-10rem] h-[30rem] w-[30rem] rounded-full opacity-20 blur-[140px]" />
+        <div className="theme-glow-secondary absolute -bottom-44 right-[-8rem] h-[34rem] w-[34rem] rounded-full opacity-15 blur-[150px]" />
         <div className="login-grid absolute inset-0 opacity-30" />
       </div>
 
       <div className="relative z-10 grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
         <section className="hidden border-r border-[#1b253b]/60 px-10 py-10 lg:flex xl:px-20">
           <div className="mx-auto flex w-full max-w-2xl flex-col justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-2.5 shadow-lg shadow-indigo-500/20">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-extrabold tracking-tight">
-                  ALURA<span className="text-indigo-400">DEV</span>
-                </p>
-                <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.22em] text-gray-500">
-                  Hub de carreira
-                </p>
-              </div>
-            </div>
+            <BrandLogo />
 
             <div className="max-w-xl">
               <div className="mb-6 flex w-fit items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-300">
@@ -66,13 +54,11 @@ export const LoginScreen: React.FC = () => {
                 Sua próxima evolução começa aqui
               </div>
               <h1 className="text-4xl font-black leading-[1.08] tracking-tight xl:text-6xl">
-                Conhecimento técnico para
-                <span className="block bg-gradient-to-r from-indigo-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
-                  construir o futuro.
-                </span>
+                <span className="theme-gradient-text">{theme.heroTitle}</span>{' '}
+                <span className="block text-white">{theme.heroHighlight}</span>
               </h1>
               <p className="mt-6 max-w-lg text-sm leading-7 text-gray-400 xl:text-base">
-                Acesse trilhas práticas, acompanhe sua evolução e transforme cada aula em progresso real para sua carreira.
+                {theme.heroSubtitle}
               </p>
 
               <div className="mt-10 grid gap-3 sm:grid-cols-3">
@@ -98,23 +84,16 @@ export const LoginScreen: React.FC = () => {
 
         <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-10">
           <div className="w-full max-w-md animate-fadeIn">
-            <div className="mb-10 flex items-center gap-3 lg:hidden">
-              <div className="rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 p-2.5 shadow-lg shadow-indigo-500/20">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <p className="text-sm font-extrabold">
-                ALURA<span className="text-indigo-400">DEV</span>
-              </p>
-            </div>
+            <BrandLogo compact showSubtitle={false} className="mb-10 lg:hidden" />
 
             <div className="rounded-[28px] border border-[#1b253b] bg-[#0b101e]/90 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-9">
               <div className="mb-8">
                 <p className="mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-400">
                   Área do membro
                 </p>
-                <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Bem-vindo de volta</h2>
+                <h2 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{theme.loginTitle}</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-500">
-                  Entre com suas credenciais para continuar seus estudos.
+                  {theme.loginSubtitle}
                 </p>
               </div>
 
@@ -168,7 +147,7 @@ export const LoginScreen: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-5 py-3.5 text-sm font-extrabold shadow-lg shadow-indigo-600/20 transition hover:-translate-y-0.5 hover:from-indigo-400 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  className="theme-gradient flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-extrabold shadow-lg transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   {isSubmitting ? (
                     <>

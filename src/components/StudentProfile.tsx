@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
 import { 
   User, 
@@ -14,7 +14,10 @@ import {
   Trash2,
   Calendar,
   CreditCard,
-  Crown
+  Crown,
+  LogIn,
+  PlayCircle,
+  RefreshCw
 } from 'lucide-react';
 import { CertificateGenerator } from './CertificateGenerator';
 
@@ -28,6 +31,12 @@ export const StudentProfile: React.FC = () => {
     favoriteCourseIds, 
     toggleFavorite, 
     activityLogs, 
+    activitiesLoading,
+    activitiesError,
+    refreshActivities,
+    achievementsLoading,
+    achievementsError,
+    refreshAchievements,
     badges, 
     navigateTo 
   } = usePlatform();
@@ -42,6 +51,34 @@ export const StudentProfile: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'badges' | 'history' | 'billing'>('profile');
   const [selectedCertCourseId, setSelectedCertCourseId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      void refreshActivities();
+    }
+
+    if (activeTab === 'badges') {
+      void refreshAchievements();
+    }
+  }, [activeTab]);
+
+  const formatActivityDate = (date: string) => {
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) return date;
+
+    return new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Sao_Paulo',
+    }).format(parsedDate);
+  };
+
+  const getActivityIcon = (type: string) => {
+    if (type === 'login') return LogIn;
+    if (type === 'lesson_progress') return PlayCircle;
+    if (type === 'lesson_completed') return CheckCircle;
+    return History;
+  };
 
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -302,10 +339,31 @@ export const StudentProfile: React.FC = () => {
           {/* BADGES ACHIEVEMENTS TAB */}
           {activeTab === 'badges' && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="font-bold text-xs text-indigo-400 tracking-wider uppercase border-b border-[#1b253b]/50 pb-2.5 font-mono">Central de Conquistas e Medalhas</h3>
+              <div className="flex items-center justify-between border-b border-[#1b253b]/50 pb-2.5">
+                <h3 className="font-bold text-xs text-indigo-400 tracking-wider uppercase font-mono">Central de Conquistas e Medalhas</h3>
+                <button
+                  type="button"
+                  onClick={() => void refreshAchievements()}
+                  disabled={achievementsLoading}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono transition hover:text-indigo-400 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3 w-3 ${achievementsLoading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </button>
+              </div>
+
+              {achievementsError && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
+                  {achievementsError}
+                </div>
+              )}
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {badges.map(b => {
+                {achievementsLoading && badges.length === 0 ? (
+                  [0, 1, 2, 3].map((item) => (
+                    <div key={item} className="h-24 animate-pulse rounded-2xl border border-[#1b253b]/40 bg-[#090d16]/30" />
+                  ))
+                ) : badges.map(b => {
                   const isUnlocked = !!b.unlockedAt;
                   return (
                     <div 
@@ -317,7 +375,11 @@ export const StudentProfile: React.FC = () => {
                       }`}
                     >
                       <div className={`p-3 rounded-2xl ${isUnlocked ? 'bg-purple-600/20 text-purple-400' : 'bg-[#12192c] text-gray-600'}`}>
-                        <Award className="w-5 h-5 shrink-0" />
+                        {b.icon ? (
+                          <span className="block text-xl leading-none" aria-hidden="true">{b.icon}</span>
+                        ) : (
+                          <Award className="w-5 h-5 shrink-0" />
+                        )}
                       </div>
                       <div className="text-left">
                         <div className="flex gap-2 items-center">
@@ -330,7 +392,9 @@ export const StudentProfile: React.FC = () => {
                         </div>
                         <p className="text-[11px] text-gray-400 mt-1">{b.description}</p>
                         {isUnlocked && (
-                          <p className="text-[9px] text-gray-500 mt-1 font-mono">Conquistado em {b.unlockedAt}</p>
+                          <p className="text-[9px] text-gray-500 mt-1 font-mono">
+                            Conquistado em {formatActivityDate(b.unlockedAt!)}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -345,24 +409,65 @@ export const StudentProfile: React.FC = () => {
             <div className="space-y-6 animate-fadeIn">
               <div className="border-b border-[#1b253b]/50 pb-2 flex-wrap flex items-center justify-between">
                 <h3 className="font-bold text-xs text-indigo-400 tracking-wider uppercase font-mono">Histórico Recente de Atividades</h3>
-                <span className="text-[10px] text-gray-500 font-mono">Últimos eventos do portal</span>
+                <button
+                  type="button"
+                  onClick={() => void refreshActivities()}
+                  disabled={activitiesLoading}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono transition hover:text-indigo-400 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3 w-3 ${activitiesLoading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </button>
               </div>
 
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {activityLogs.length === 0 ? (
+                {activitiesLoading && activityLogs.length === 0 ? (
+                  <div className="space-y-3">
+                    {[0, 1, 2].map((item) => (
+                      <div key={item} className="h-16 animate-pulse rounded-xl border border-[#1b253b]/60 bg-[#090d16]/30" />
+                    ))}
+                  </div>
+                ) : activitiesError && activityLogs.length === 0 ? (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-center">
+                    <p className="text-xs text-red-300">{activitiesError}</p>
+                    <button
+                      type="button"
+                      onClick={() => void refreshActivities()}
+                      className="mt-3 text-[10px] font-bold text-red-200 underline"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : activityLogs.length === 0 ? (
                   <p className="text-xs text-gray-500 italic text-center py-6">Nenhuma atividade registrada.</p>
                 ) : (
-                  activityLogs.map(log => (
-                    <div key={log.id} className="p-3 bg-[#090d16]/30 hover:bg-[#090d16]/50 transition rounded-xl border border-[#1b253b]/60 flex items-start gap-3 text-left">
-                      <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg mt-0.5 shrink-0">
-                        <History className="w-3.5 h-3.5" />
+                  activityLogs.map(log => {
+                    const ActivityIcon = getActivityIcon(log.type);
+                    return (
+                      <div key={log.id} className="p-3 bg-[#090d16]/30 hover:bg-[#090d16]/50 transition rounded-xl border border-[#1b253b]/60 flex items-start gap-3 text-left">
+                        <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg mt-0.5 shrink-0">
+                          <ActivityIcon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="text-xs flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="font-bold text-gray-200">{log.title || 'Atividade'}</p>
+                            <span className="shrink-0 text-[9px] text-gray-500 font-mono">
+                              {formatActivityDate(log.date)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-gray-400">{log.description}</p>
+                          {typeof log.metadata?.percentage === 'number' && (
+                            <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#090d16]">
+                              <div
+                                className="theme-gradient h-full rounded-full"
+                                style={{ width: `${Math.min(100, log.metadata.percentage)}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs flex-1">
-                        <p className="text-gray-300 font-medium">{log.description}</p>
-                        <span className="text-[9px] text-gray-500 block font-mono mt-0.5">{log.date}</span>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

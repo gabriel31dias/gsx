@@ -38,7 +38,7 @@ function DashboardScreen() {
 
   if (coursesLoading) {
     return (
-      <div className="min-h-[calc(100vh-64px)] bg-[#070a13] px-4 py-12 text-white lg:px-10">
+      <div className="theme-background min-h-[calc(100vh-64px)] px-4 py-12 text-white lg:px-10">
         <div className="mx-auto max-w-7xl animate-pulse">
           <div className="mb-10 h-52 rounded-3xl border border-[#1b253b] bg-[#0e1424]" />
           <div className="mb-5 h-6 w-52 rounded-lg bg-[#12192c]" />
@@ -54,7 +54,7 @@ function DashboardScreen() {
 
   if (coursesError) {
     return (
-      <div className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#070a13] px-5 text-white">
+      <div className="theme-background flex min-h-[calc(100vh-64px)] items-center justify-center px-5 text-white">
         <div className="max-w-md rounded-3xl border border-red-500/20 bg-[#0e1424] p-8 text-center">
           <AlertCircle className="mx-auto mb-4 h-9 w-9 text-red-400" />
           <h2 className="text-lg font-extrabold">Não foi possível carregar os cursos</h2>
@@ -62,7 +62,7 @@ function DashboardScreen() {
           <button
             type="button"
             onClick={() => void refreshCourses()}
-            className="mx-auto mt-6 flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-xs font-bold transition hover:bg-indigo-500"
+            className="theme-primary-bg mx-auto mt-6 flex items-center gap-2 rounded-xl px-5 py-3 text-xs font-bold transition hover:brightness-110"
           >
             <RefreshCw className="h-4 w-4" />
             Tentar novamente
@@ -73,7 +73,7 @@ function DashboardScreen() {
   }
 
   return (
-    <div className="bg-[#070a13] text-white min-h-screen pb-20 space-y-6">
+    <div className="theme-background text-white min-h-screen pb-20 space-y-6">
       
       {/* Modern Developer Tech Spotlight Banner */}
       <HeroBanner onSearchChange={(q) => setSearchQuery(q)} />
@@ -111,7 +111,7 @@ function MainScreenShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="bg-[#070a13] min-h-screen flex font-sans transition-all selection:bg-indigo-500 selection:text-white">
+    <div className="theme-background min-h-screen flex font-sans transition-all selection:text-white">
       {/* Persistent Left Sidebar on desktop, slide-over drawer on mobile */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -121,7 +121,7 @@ function MainScreenShell() {
         <Header onToggleSidebar={() => setSidebarOpen(true)} />
 
         {/* Screen Routing Outlet simulation */}
-        <main className="flex-grow bg-[#070a13]">
+        <main className="theme-background flex-grow">
           {activeScreen === 'home' && <DashboardScreen />}
           {activeScreen === 'learning' && <CoursePlayer />}
           {activeScreen === 'profile' && <StudentProfile />}
@@ -140,9 +140,9 @@ function AuthenticatedApp() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#070a13] text-white">
+      <div className="theme-background flex min-h-screen items-center justify-center text-white">
         <div className="flex flex-col items-center gap-4">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-400/25 border-t-indigo-400" />
+          <span className="theme-primary-border h-8 w-8 animate-spin rounded-full border-2 border-t-[var(--theme-primary)]" />
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-gray-500">
             Validando sessão
           </span>

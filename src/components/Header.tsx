@@ -11,11 +11,11 @@ import {
   Menu, 
   X,
   CreditCard,
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { BrandLogo } from './BrandLogo';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -72,13 +72,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
           {/* Elegant Breadcrumbs layout */}
           <div className="hidden md:flex items-center gap-2 text-xs font-medium">
-            <span 
+            <button
+              type="button"
               className="text-gray-400 hover:text-indigo-400 font-bold transition cursor-pointer flex items-center gap-1.5" 
               onClick={() => navigateTo('home')}
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#818cf8]" />
-              AluraDev
-            </span>
+              <BrandLogo compact showSubtitle={false} />
+            </button>
             <ChevronRight className="w-3.5 h-3.5 text-[#1e2a42]" />
             <span className="text-white font-extrabold">{screenName.main}</span>
             <span className="text-[#1a2333]/70 font-normal">|</span>
@@ -86,9 +86,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           </div>
 
           <div className="md:hidden flex items-center gap-1.5 cursor-pointer" onClick={() => navigateTo('home')}>
-            <span className="text-xs font-extrabold font-sans tracking-tight bg-gradient-to-r from-indigo-400 to-indigo-550 bg-clip-text text-transparent">
-              ALURA<span className="text-white ml-0.5">DEV</span>
-            </span>
+            <BrandLogo compact showSubtitle={false} />
           </div>
         </div>
 

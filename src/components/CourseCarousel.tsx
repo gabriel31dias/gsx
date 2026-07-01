@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Course } from '../types';
-import { Play, Heart, Star, BookOpen, Clock, ChevronRight } from 'lucide-react';
+import { Play, Heart, Star, BookOpen, Clock, ChevronRight, Lock } from 'lucide-react';
 import { usePlatform } from '../context/PlatformContext';
 
 interface CourseCarouselProps {
@@ -41,6 +41,11 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
   const handleStartCourse = async (course: Course) => {
     setOpenError(null);
 
+    if (course.isLocked) {
+      navigateTo('plans');
+      return;
+    }
+
     try {
       const firstLessonId = await loadCourseLessons(course.id);
       navigateTo('learning', course.id, firstLessonId);
@@ -56,7 +61,7 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
         {/* Section Heading with subtle accent indicator */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-1.5 h-6 rounded-full bg-gradient-to-b from-indigo-500 to-purple-500" />
+            <div className="theme-gradient w-1.5 h-6 rounded-full" />
             <h2 className="text-lg md:text-xl font-bold text-gray-100 tracking-tight">
               {title}
             </h2>
@@ -85,6 +90,7 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
               const isFav = favoriteCourseIds.includes(course.id);
               const lessonsCount = course.totalLessons ?? course.modules.reduce((sum, mod) => sum + mod.lessons.length, 0);
               const isOpening = lessonsLoadingCourseId === course.id;
+              const isLocked = course.isLocked;
 
               return (
                 <div 
@@ -94,27 +100,37 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
                 >
                   {/* Banner cover */}
                   <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-900 border-b border-[#1b253b]/30">
-                    <img 
+                    <img
                       referrerPolicy="no-referrer"
-                      src={course.coverImage} 
+                      src={course.coverImage}
                       alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                      className={`w-full h-full object-cover transition-transform duration-500 ${isLocked ? 'blur-[3px] scale-105 grayscale-[40%]' : 'group-hover:scale-102'}`}
                     />
-                    
+
                     {/* Dark gradient blur covering bottom of image */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-100 transition-all duration-300" />
 
-                    {/* Hover Vignette Overlay with Play Trigger */}
-                    <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
-                      <button 
-                        onClick={() => handleStartCourse(course)}
-                        disabled={isOpening}
-                        className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-full text-white shadow-xl hover:scale-110 active:scale-95 transition-all cursor-pointer border border-indigo-400/25"
-                        title="Ver Curso"
-                      >
-                        <Play className="w-4.5 h-4.5 fill-current" />
-                      </button>
-                    </div>
+                    {isLocked ? (
+                      /* Persistent Locked Overlay */
+                      <div className="absolute inset-0 bg-black/55 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
+                        <div className="p-3 rounded-full bg-[#0a0e19]/90 border border-amber-400/40 shadow-xl">
+                          <Lock className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/90">Bloqueado</span>
+                      </div>
+                    ) : (
+                      /* Hover Vignette Overlay with Play Trigger */
+                      <div className="absolute inset-0 bg-indigo-950/40 backdrop-blur-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-10">
+                        <button
+                          onClick={() => handleStartCourse(course)}
+                          disabled={isOpening}
+                          className="theme-primary-bg theme-primary-border p-3 rounded-full text-white shadow-xl hover:scale-110 hover:brightness-110 active:scale-95 transition-all cursor-pointer border"
+                          title="Ver Curso"
+                        >
+                          <Play className="w-4.5 h-4.5 fill-current" />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Category Label Overlay */}
                     <span className="absolute top-3 left-3 bg-[#0a0e19]/90 backdrop-blur-md text-indigo-300 text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-md border border-[#1a2333]/80 z-10">
@@ -169,7 +185,7 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
                           </div>
                           <div className="w-full bg-[#1b243b] h-1 rounded-full overflow-hidden">
                             <div 
-                              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-500" 
+                              className="theme-gradient h-full rounded-full transition-all duration-500"
                               style={{ width: `${progressPct}%` }}
                             />
                           </div>
@@ -187,14 +203,25 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
                       )}
 
                       {/* Continuous learning action button */}
-                      <button 
-                        onClick={() => handleStartCourse(course)}
-                        disabled={isOpening}
-                        className="w-full bg-[#121829] enabled:hover:bg-indigo-600 border border-[#1b253b] enabled:hover:border-indigo-400 text-gray-300 enabled:hover:text-white font-bold text-xs py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 enabled:cursor-pointer disabled:cursor-not-allowed disabled:text-gray-500"
-                      >
-                        {isOpening ? 'Carregando aulas...' : progressPct > 0 ? 'Retomar Aula' : 'Acessar curso'}
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
+                      {isLocked ? (
+                        <button
+                          onClick={() => handleStartCourse(course)}
+                          className="w-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-400/40 text-amber-300 hover:text-amber-200 font-bold text-xs py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 cursor-pointer"
+                          title={course.requiredPlans?.length ? `Requer: ${course.requiredPlans.map(p => p.name).join(', ')}` : 'Plano necessário'}
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          {course.requiredPlans?.length ? 'Assinar plano' : 'Conteúdo bloqueado'}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStartCourse(course)}
+                          disabled={isOpening}
+                          className="w-full bg-[#121829] enabled:hover:bg-[var(--theme-primary)] border border-[#1b253b] enabled:hover:border-[var(--theme-primary)] text-gray-300 enabled:hover:text-white font-bold text-xs py-2 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 enabled:cursor-pointer disabled:cursor-not-allowed disabled:text-gray-500"
+                        >
+                          {isOpening ? 'Carregando aulas...' : progressPct > 0 ? 'Retomar Aula' : 'Acessar curso'}
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

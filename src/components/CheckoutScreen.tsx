@@ -144,7 +144,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         value={form[key]}
         onChange={update(key)}
         required={required}
-        className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] py-3 px-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+        className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] py-2.5 px-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
       />
     </label>
   );
@@ -189,7 +189,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           </div>
         </section>
 
-        <section className="flex min-h-screen items-center justify-center px-5 py-10 sm:px-10">
+        <section className="flex min-h-screen items-center justify-center px-5 py-6 sm:px-10">
           <div className="w-full max-w-md animate-fadeIn">
             <button
               type="button"
@@ -198,7 +198,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 else if (step === 'plans') setStep('address');
                 else onBack();
               }}
-              className="mb-6 flex w-fit items-center gap-2 text-xs font-bold text-gray-400 transition hover:text-white"
+              className="mb-4 flex w-fit items-center gap-2 text-xs font-bold text-gray-400 transition hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" />
               {step === 'address' ? 'Voltar aos dados' : step === 'plans' ? 'Voltar ao endereço' : 'Voltar para o login'}
@@ -207,7 +207,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             <BrandLogo compact showSubtitle={false} className="mb-8 lg:hidden" />
 
             {step !== 'pix' && (
-              <ol className="mb-6 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider">
+              <ol className="mb-5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider">
                 {[
                   { key: 'personal', label: 'Dados' },
                   { key: 'address', label: 'Endereço' },
@@ -335,11 +335,11 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             </button>
           </div>
         ) : step === 'address' ? (
-          <form onSubmit={goTo('plans')} className="rounded-[28px] border border-[#1b253b] bg-[#0b101e]/90 p-6 sm:p-8">
+          <form onSubmit={goTo('plans')} className="rounded-[28px] border border-[#1b253b] bg-[#0b101e]/90 p-5 sm:p-7">
             <h2 className="mb-1 text-2xl font-extrabold">Endereço</h2>
-            <p className="mb-6 text-sm text-gray-500">Informe o CEP para completar automaticamente.</p>
+            <p className="mb-5 text-sm text-gray-500">Informe o CEP para completar automaticamente.</p>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               <label className="block">
                 <span className="mb-2 block text-xs font-bold text-gray-300">CEP</span>
                 <input
@@ -349,7 +349,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                   required
                   inputMode="numeric"
                   placeholder="Digite o CEP para preencher o endereço"
-                  className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] py-3 px-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] py-2.5 px-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
               </label>
               {field('Rua', 'rua')}
@@ -359,18 +359,18 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
             <button
               type="submit"
-              className="theme-gradient mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-extrabold transition hover:brightness-110"
+              className="theme-gradient mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-extrabold transition hover:brightness-110"
             >
               Continuar
               <ArrowLeft className="h-4 w-4 rotate-180" />
             </button>
           </form>
         ) : (
-          <form onSubmit={goTo('address')} className="rounded-[28px] border border-[#1b253b] bg-[#0b101e]/90 p-6 sm:p-8">
+          <form onSubmit={goTo('address')} className="rounded-[28px] border border-[#1b253b] bg-[#0b101e]/90 p-5 sm:p-7">
             <h2 className="mb-1 text-2xl font-extrabold">Dados pessoais</h2>
-            <p className="mb-6 text-sm text-gray-500">Preencha seus dados para criar a conta.</p>
+            <p className="mb-5 text-sm text-gray-500">Preencha seus dados para criar a conta.</p>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {field('Nome completo', 'name')}
               {field('E-mail', 'email', 'email')}
               {field('Telefone', 'phone', 'tel')}
@@ -385,7 +385,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                   minLength={6}
                   autoComplete="new-password"
                   placeholder="Mínimo 6 caracteres"
-                  className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] py-3 px-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] py-2.5 px-4 text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 />
                 <span className="mt-1.5 block text-[11px] text-gray-500">Você usará essa senha para entrar após o pagamento.</span>
               </label>
@@ -393,7 +393,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
 
             <button
               type="submit"
-              className="theme-gradient mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-extrabold transition hover:brightness-110"
+              className="theme-gradient mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-extrabold transition hover:brightness-110"
             >
               Continuar
               <ArrowLeft className="h-4 w-4 rotate-180" />

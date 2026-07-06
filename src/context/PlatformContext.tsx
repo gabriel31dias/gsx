@@ -38,7 +38,12 @@ interface PlatformContextProps {
   loadCourseLessons: (courseId: string) => Promise<string | null>;
   refreshActivities: () => Promise<void>;
   refreshAchievements: () => Promise<void>;
-  
+  xpProgress: XpProgress | null;
+  refreshXp: () => Promise<void>;
+  billing: BillingData | null;
+  billingLoading: boolean;
+  refreshBilling: () => Promise<void>;
+
   // Navigation & View Actions
   navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans', courseId?: string | null, lessonId?: string | null) => void;
   
@@ -141,6 +146,35 @@ interface ActivitiesResponse {
   activities?: ApiActivity[];
   message?: string;
   error?: string;
+}
+
+export interface XpProgress {
+  points: number;
+  level: number;
+  xp_into_level: number;
+  xp_for_next_level: number;
+  percent: number;
+}
+
+export interface BillingInvoice {
+  id: string;
+  amount: number | string;
+  payment_method: string | null;
+  status: string;
+  plan_name: string | null;
+  date: string;
+}
+
+export interface BillingData {
+  subscription_status: string;
+  subscription: {
+    plan_name: string;
+    price: number | string;
+    status: string;
+    started_at: string;
+    expires_at: string | null;
+  } | null;
+  invoices: BillingInvoice[];
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
@@ -309,6 +343,10 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const saved = localStorage.getItem('aluraflix_badges');
     return saved ? JSON.parse(saved) : INITIAL_BADGES;
   });
+
+  const [xpProgress, setXpProgress] = useState<XpProgress | null>(null);
+  const [billing, setBilling] = useState<BillingData | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
@@ -568,8 +606,52 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   };
 
+  // XP/nível reais do backend -> alimenta o menu, o perfil e currentUser.points.
+  const refreshXp = async () => {
+    if (!session?.token) {
+      setXpProgress(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/profile`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.profile) {
+        setXpProgress(data.profile as XpProgress);
+        setCurrentUser((current) => ({ ...current, points: data.profile.points }));
+      }
+    } catch {
+      // mantém o valor atual quando o endpoint estiver indisponível
+    }
+  };
+
+  const refreshBilling = async () => {
+    if (!session?.token) {
+      setBilling(null);
+      return;
+    }
+
+    setBillingLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/billing`, {
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setBilling(data as BillingData);
+      }
+    } catch {
+      // mantém o valor atual quando o endpoint estiver indisponível
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   useEffect(() => {
     void refreshCourses();
+    void refreshXp();
   }, [session?.token]);
 
   useEffect(() => {
@@ -1010,6 +1092,11 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       loadCourseLessons,
       refreshActivities,
       refreshAchievements,
+      xpProgress,
+      refreshXp,
+      billing,
+      billingLoading,
+      refreshBilling,
       navigateTo,
       updateProfile,
       changePassword,

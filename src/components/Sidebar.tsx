@@ -25,13 +25,14 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { currentUser, activeScreen, navigateTo, certificates, badges } = usePlatform();
+  const { currentUser, activeScreen, navigateTo, certificates, badges, xpProgress } = usePlatform();
   const { logout } = useAuth();
 
   const navItems = [
     { id: 'home', label: 'Início & Catálogo', icon: Layout, desc: 'Aulas, ementas e trilhas' },
-    { id: 'ranking', label: 'Estatísticas & Ranking', icon: Trophy, desc: 'Quadro de líderes de XP' },
-    { id: 'live', label: 'Webinars Ao Vivo', icon: Compass, desc: 'Mentorias e lives ativas' },
+    // ponytail: ocultos por enquanto — reativar quando as páginas estiverem prontas
+    // { id: 'ranking', label: 'Estatísticas & Ranking', icon: Trophy, desc: 'Quadro de líderes de XP' },
+    // { id: 'live', label: 'Webinars Ao Vivo', icon: Compass, desc: 'Mentorias e lives ativas' },
     { id: 'plans', label: 'Upgrade de Planos', icon: CreditCard, desc: 'Certificações premium' },
   ];
 
@@ -75,21 +76,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Progress dynamic indicators */}
+              {/* Progress dynamic indicators (XP/nível reais) */}
               <div className="mt-3.5 space-y-1">
                 <div className="flex justify-between items-center text-[9px] text-gray-400">
                   <span className="font-bold flex items-center gap-0.5 text-amber-500">
                     <Flame className="w-3" />
-                    {currentUser.points} XP
+                    {xpProgress?.points ?? currentUser.points} XP
                   </span>
-                  <span>Meta: 2.000 XP</span>
+                  <span>Nível {xpProgress?.level ?? 1}</span>
                 </div>
                 <div className="w-full bg-[#162136] h-1.5 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className="theme-gradient h-full rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((currentUser.points / 2000) * 100, 100)}%` }}
+                    style={{ width: `${Math.min(xpProgress?.percent ?? 0, 100)}%` }}
                   />
                 </div>
+                {xpProgress && (
+                  <p className="text-[8px] text-gray-500 font-mono pt-0.5">
+                    {xpProgress.xp_into_level}/{xpProgress.xp_for_next_level} XP p/ nível {xpProgress.level + 1}
+                  </p>
+                )}
               </div>
             </div>
           </div>

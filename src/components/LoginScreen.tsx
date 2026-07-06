@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { BrandLogo } from './BrandLogo';
+import { CheckoutScreen } from './CheckoutScreen';
 
 export const LoginScreen: React.FC = () => {
   const { login, theme } = useAuth();
@@ -20,6 +21,11 @@ export const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showCheckout, setShowCheckout] = useState(false);
+
+  if (showCheckout) {
+    return <CheckoutScreen onBack={() => setShowCheckout(false)} />;
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -162,6 +168,14 @@ export const LoginScreen: React.FC = () => {
                   )}
                 </button>
               </form>
+
+              <button
+                type="button"
+                onClick={() => setShowCheckout(true)}
+                className="mt-6 w-full rounded-xl border border-[#202b42] py-3 text-sm font-bold text-gray-300 transition hover:border-indigo-500 hover:text-white"
+              >
+                Ainda não tem conta? Criar conta
+              </button>
 
               <div className="mt-7 flex items-center justify-center gap-2 border-t border-[#1b253b] pt-6 text-[10px] text-gray-500">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />

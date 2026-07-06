@@ -22,6 +22,7 @@ import {
 import { CertificateGenerator } from './CertificateGenerator';
 
 export const StudentProfile: React.FC = () => {
+
   const { 
     currentUser, 
     updateProfile, 
@@ -37,9 +38,15 @@ export const StudentProfile: React.FC = () => {
     achievementsLoading,
     achievementsError,
     refreshAchievements,
-    badges, 
-    navigateTo 
+    badges,
+    navigateTo,
+    xpProgress,
+    billing,
+    billingLoading,
+    refreshBilling,
   } = usePlatform();
+
+  const xp = xpProgress;
 
   // local states for inputs
   const [name, setName] = useState(currentUser.name);
@@ -60,7 +67,20 @@ export const StudentProfile: React.FC = () => {
     if (activeTab === 'badges') {
       void refreshAchievements();
     }
+
+    if (activeTab === 'billing') {
+      void refreshBilling();
+    }
   }, [activeTab]);
+
+  const brl = (value: number | string) =>
+    Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const paymentLabel = (method: string | null) => {
+    if (method === 'pix') return 'PIX Instantâneo';
+    if (method === 'credit_card') return 'Cartão de Crédito';
+    return method || '—';
+  };
 
   const formatActivityDate = (date: string) => {
     const parsedDate = new Date(date);
@@ -160,7 +180,7 @@ export const StudentProfile: React.FC = () => {
         <div className="bg-[#090d16] border border-[#1b253b]/80 p-4 rounded-2xl grid grid-cols-3 gap-3 md:flex md:items-center md:gap-6 md:divide-x md:divide-[#1b253b]/80 z-10 shadow-md w-full md:w-auto">
           <div className="text-center px-1 md:px-2">
             <span className="text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-wider block font-mono">Pontos</span>
-            <span className="text-sm md:text-lg font-black text-amber-500 font-mono mt-0.5 block">{currentUser.points} XP</span>
+            <span className="text-sm md:text-lg font-black text-amber-500 font-mono mt-0.5 block">{xp?.points ?? currentUser.points} XP</span>
           </div>
           <div className="text-center px-1 md:pl-6 md:pr-2 border-l border-[#1b253b]/80 md:border-none">
             <span className="text-[9px] md:text-[10px] text-gray-400 font-bold uppercase tracking-wider block font-mono">Diplomas</span>
@@ -174,6 +194,32 @@ export const StudentProfile: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* XP / Level progression */}
+      {xp && (
+        <div className="bg-[#0e1424] border border-[#1b253b]/80 rounded-3xl p-5 md:p-6 shadow-md">
+          <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 font-black text-base font-mono shrink-0">
+                {xp.level}
+              </span>
+              <div className="text-left">
+                <p className="text-xs font-bold text-white">Nível {xp.level}</p>
+                <p className="text-[10px] text-gray-500 font-mono">{xp.points} XP acumulados</p>
+              </div>
+            </div>
+            <span className="text-[10px] text-gray-400 font-mono">
+              {xp.xp_into_level} / {xp.xp_for_next_level} XP para o nível {xp.level + 1}
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-[#090d16] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-amber-500 to-indigo-500 transition-all duration-500"
+              style={{ width: `${Math.min(100, xp.percent)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Main split tab layout */}
       <div className="flex flex-col lg:flex-row gap-8">
@@ -476,66 +522,83 @@ export const StudentProfile: React.FC = () => {
           {/* BILLING / PLANS MANAGEMENT */}
           {activeTab === 'billing' && (
             <div className="space-y-6 animate-fadeIn">
-              <h3 className="font-bold text-xs text-indigo-400 tracking-wider uppercase border-b border-[#1b253b]/50 pb-2.5 font-mono">Gerenciamento de Assinatura</h3>
-              
-              <div className="bg-[#090d16]/50 border border-[#1b253b] p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="text-left">
-                  <p className="text-xs text-gray-505 text-gray-400">Status atual da sua ementa de estudos</p>
-                  <p className="text-lg font-black text-white mt-1 uppercase tracking-tight flex items-center gap-1.5">
-                    Plano {currentUser.membershipPlan === 'Nenhum' ? 'Grátis' : currentUser.membershipPlan}
-                    {currentUser.membershipStatus === 'active' && (
-                      <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono">
-                        Ativado
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1 max-w-sm leading-relaxed">Suas faturas de renovação são gerenciadas de forma automatizada no portal simulado.</p>
-                </div>
-
-                <div className="flex gap-2 w-full md:w-auto">
-                  {currentUser.membershipPlan !== 'Nenhum' ? (
-                    <button 
-                      onClick={() => alert("Este plano é simulado. Para fins de demonstração, sua assinatura permanecerá ativa.")}
-                      className="w-full md:w-auto bg-[#12192c] hover:bg-[#12192c]/65 text-xs text-gray-300 px-4 py-2.5 rounded-xl border border-[#1b253b] transition cursor-pointer font-bold duration-200"
-                    >
-                      Gerenciar Cobrança
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => navigateTo('plans')}
-                      className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white px-5 py-2.5 rounded-xl transition cursor-pointer border border-indigo-400/20 shadow-md shadow-indigo-605/10"
-                    >
-                      Assinar Plano Premium
-                    </button>
-                  )}
-                </div>
+              <div className="flex items-center justify-between border-b border-[#1b253b]/50 pb-2.5">
+                <h3 className="font-bold text-xs text-indigo-400 tracking-wider uppercase font-mono">Gerenciamento de Assinatura</h3>
+                <button
+                  type="button"
+                  onClick={() => void refreshBilling()}
+                  disabled={billingLoading}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-500 font-mono transition hover:text-indigo-400 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3 w-3 ${billingLoading ? 'animate-spin' : ''}`} />
+                  Atualizar
+                </button>
               </div>
 
-              {/* Invoices Logs list */}
+              {billingLoading && !billing ? (
+                <div className="h-24 animate-pulse rounded-2xl border border-[#1b253b]/40 bg-[#090d16]/30" />
+              ) : (
+                <div className="bg-[#090d16]/50 border border-[#1b253b] p-5 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="text-left">
+                    <p className="text-xs text-gray-400">Status atual da sua ementa de estudos</p>
+                    <p className="text-lg font-black text-white mt-1 uppercase tracking-tight flex items-center gap-1.5">
+                      Plano {billing?.subscription?.plan_name ?? 'Grátis'}
+                      {billing?.subscription && (
+                        <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono">
+                          Ativo
+                        </span>
+                      )}
+                    </p>
+                    {billing?.subscription ? (
+                      <p className="text-xs text-gray-500 mt-1 max-w-sm leading-relaxed">
+                        {brl(billing.subscription.price)}
+                        {billing.subscription.expires_at && (
+                          <> · Renova/expira em {formatActivityDate(billing.subscription.expires_at)}</>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1 max-w-sm leading-relaxed">Você ainda não tem um plano ativo.</p>
+                    )}
+                  </div>
+
+                  {!billing?.subscription && (
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <button
+                        onClick={() => navigateTo('plans')}
+                        className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 font-bold text-xs text-white px-5 py-2.5 rounded-xl transition cursor-pointer border border-indigo-400/20 shadow-md shadow-indigo-605/10"
+                      >
+                        Assinar um Plano
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Invoices Logs list (reais) */}
               <div className="space-y-3">
-                <h4 className="font-bold text-[10px] text-gray-400 uppercase tracking-widest text-left font-mono">Invoices e Cobranças Realizadas</h4>
+                <h4 className="font-bold text-[10px] text-gray-400 uppercase tracking-widest text-left font-mono">Pagamentos Realizados</h4>
                 <div className="border border-[#1b253b]/80 divide-y divide-[#1b253b]/60 rounded-xl overflow-hidden bg-[#090d16]/30 text-xs">
                   <div className="p-3 flex items-center justify-between text-gray-300 font-extrabold bg-[#0e1424] text-[11px] font-mono">
-                    <span>Identificador / Data</span>
-                    <span>Forma de Envio</span>
-                    <span>Total Pago</span>
+                    <span>Plano / Data</span>
+                    <span>Forma</span>
+                    <span>Total</span>
                   </div>
-                  <div className="p-3.5 flex items-center justify-between">
-                    <div className="text-left">
-                      <p className="font-bold text-gray-300">Invoice: DEV-2830219</p>
-                      <span className="text-[10px] text-gray-500">31 de Maio, 2026</span>
-                    </div>
-                    <span className="text-gray-400 font-medium">PIX Instantâneo</span>
-                    <span className="text-emerald-400 font-mono font-extrabold font-semibold">R$ 49,90</span>
-                  </div>
-                  <div className="p-3.5 flex items-center justify-between">
-                    <div className="text-left">
-                      <p className="font-bold text-gray-300">Invoice: DEV-1940251</p>
-                      <span className="text-[10px] text-gray-500">30 de Abril, 2026</span>
-                    </div>
-                    <span className="text-gray-400 font-medium">Cartão de Crédito</span>
-                    <span className="text-emerald-400 font-mono font-extrabold font-semibold">R$ 49,90</span>
-                  </div>
+                  {(!billing || billing.invoices.length === 0) ? (
+                    <p className="p-4 text-center text-gray-500 italic">Nenhum pagamento registrado.</p>
+                  ) : (
+                    billing.invoices.map((inv) => (
+                      <div key={inv.id} className="p-3.5 flex items-center justify-between gap-3">
+                        <div className="text-left min-w-0">
+                          <p className="font-bold text-gray-300 truncate">{inv.plan_name || 'Assinatura'}</p>
+                          <span className="text-[10px] text-gray-500">{formatActivityDate(inv.date)}</span>
+                        </div>
+                        <span className="text-gray-400 font-medium shrink-0">{paymentLabel(inv.payment_method)}</span>
+                        <span className={`font-mono font-extrabold shrink-0 ${inv.status === 'completed' ? 'text-emerald-400' : 'text-gray-400'}`}>
+                          {brl(inv.amount)}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

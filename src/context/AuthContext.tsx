@@ -45,6 +45,8 @@ export interface AuthUser {
   name: string;
   email: string;
   role: string;
+  owner_id?: string | null;
+  current_plan_id?: string | null;
 }
 
 interface AuthSession {

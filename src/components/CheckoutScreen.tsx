@@ -39,7 +39,7 @@ const planPriceValue = (value: number | string) => (
   typeof value === 'number' ? value : Number(value.replace(',', '.'))
 );
 
-const isPaidPlan = (plan: Plan) => planPriceValue(plan.price) > 0;
+const isFreePlan = (plan: Plan) => !(planPriceValue(plan.price) > 0);
 
 const maskCep = (value: string) => {
   const digits = value.replace(/\D/g, '').slice(0, 8);
@@ -70,7 +70,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     fetch(`${API_BASE_URL}/api/v1/plans${query}`)
       .then((r) => r.json())
       .then((data) => {
-        const list: Plan[] = (data.plans ?? []).filter(isPaidPlan);
+        const list: Plan[] = data.plans ?? [];
         setPlans(list);
         setPlanId(list[0]?.id ?? '');
       })
@@ -155,7 +155,16 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         body: JSON.stringify({ id: producerId, plan_id: planId, ...rest, address }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || (data.errors && data.errors[0]) || 'Falha ao gerar o PIX.');
+      if (!response.ok) throw new Error(data.error || (data.errors && data.errors[0]) || 'Falha ao concluir o cadastro.');
+
+      // Plano gratuito: sem PIX, cadastro já sai com o plano ativo.
+      if (data.free) {
+        setOrderId(data.order_id);
+        setPaid(true);
+        setStep('pix');
+        return;
+      }
+
       if (!data.pix?.qrcode) throw new Error('A gateway não retornou o código PIX.');
       setPix(data.pix);
       setOrderId(data.order_id);
@@ -166,6 +175,8 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       setIsSubmitting(false);
     }
   };
+
+  const freeSelected = plans.some((plan) => plan.id === planId && isFreePlan(plan));
 
   const copy = async () => {
     if (!pix?.qrcode) return;
@@ -252,9 +263,13 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
             {step === 'pix' && paid ? (
           <div className="rounded-[28px] border border-emerald-500/30 bg-[#0b101e]/90 p-7 text-center">
             <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
-            <h2 className="text-2xl font-extrabold">Pagamento confirmado!</h2>
+            <h2 className="text-2xl font-extrabold">
+              {freeSelected ? 'Cadastro concluído!' : 'Pagamento confirmado!'}
+            </h2>
             <p className="mt-2 text-sm text-gray-400">
-              Seu acesso foi liberado. Faça login com seu e-mail para entrar na plataforma.
+              {freeSelected
+                ? 'Seu plano gratuito já está ativo. Confirme seu e-mail e faça login para entrar na plataforma.'
+                : 'Seu acesso foi liberado. Faça login com seu e-mail para entrar na plataforma.'}
             </p>
             <button
               type="button"
@@ -303,7 +318,11 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           <div className="rounded-3xl border border-[#1b253b] bg-[#0b101e]/90 p-5 sm:p-6">
             {stepIndicator}
             <h2 className="mb-1 text-xl font-extrabold">Escolha seu plano</h2>
-            <p className="mb-4 text-xs text-gray-500">Selecione um plano para gerar o PIX de pagamento.</p>
+            <p className="mb-4 text-xs text-gray-500">
+              {freeSelected
+                ? 'Plano gratuito: seu acesso é liberado na hora, sem pagamento.'
+                : 'Selecione um plano para gerar o PIX de pagamento.'}
+            </p>
 
             <div className="space-y-2">
               {plans.length === 0 && (
@@ -332,7 +351,9 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                       )}
                     </span>
                   </span>
-                  <span className="font-mono text-gray-300">{brl(plan.price)}</span>
+                  <span className="font-mono text-gray-300">
+                    {isFreePlan(plan) ? 'Gratuito' : brl(plan.price)}
+                  </span>
                 </label>
               ))}
             </div>
@@ -358,8 +379,8 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
                 disabled={isSubmitting || !planId}
                 className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                {isSubmitting ? 'Gerando...' : 'Gerar PIX'}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : freeSelected ? <Check className="h-4 w-4" /> : <QrCode className="h-4 w-4" />}
+                {isSubmitting ? 'Enviando...' : freeSelected ? 'Criar conta grátis' : 'Gerar PIX'}
               </button>
             </div>
           </div>

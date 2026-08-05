@@ -21,12 +21,12 @@ const planPriceValue = (value: number | string) => (
   typeof value === 'number' ? value : Number(value.replace(',', '.'))
 );
 
-const isPaidPlan = (plan: ApiPlan) => planPriceValue(plan.price) > 0;
+const isFreePlan = (plan: ApiPlan) => !(planPriceValue(plan.price) > 0);
 
 interface PixCheckout {
   orderId: string;
   planName: string;
-  qrcode: string;
+  qrcode: string; // vazio quando o plano é gratuito (sem PIX)
   expiration?: string;
 }
 
@@ -57,7 +57,17 @@ export const PlansArea: React.FC = () => {
         body: JSON.stringify({ plan_id: plan.id }),
       });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data.error || (data.errors && data.errors[0]) || 'Falha ao gerar o PIX.');
+      if (!r.ok) throw new Error(data.error || (data.errors && data.errors[0]) || 'Falha ao assinar o plano.');
+
+      // Plano gratuito: backend já ativou a assinatura, vai direto pro sucesso.
+      if (data.free) {
+        setPaid(true);
+        setCheckout({ orderId: data.order_id, planName: plan.name, qrcode: '' });
+        void refreshUser().catch(() => {});
+        void refreshXp();
+        return;
+      }
+
       if (!data.pix?.qrcode) throw new Error('A gateway não retornou o código PIX.');
       setPaid(false);
       setCheckout({ orderId: data.order_id, planName: plan.name, qrcode: data.pix.qrcode, expiration: data.pix.expiration_date });
@@ -112,7 +122,7 @@ export const PlansArea: React.FC = () => {
     const query = producerId ? `?id=${encodeURIComponent(producerId)}` : '';
     fetch(`${API_BASE_URL}/api/v1/plans${query}`)
       .then((r) => r.json())
-      .then((data) => setPlans((data.plans ?? []).filter(isPaidPlan)))
+      .then((data) => setPlans(data.plans ?? []))
       .catch(() => setError('Não foi possível carregar os planos.'))
       .finally(() => setLoading(false));
   }, [producerId]);
@@ -172,7 +182,9 @@ export const PlansArea: React.FC = () => {
                   </div>
 
                   <div className="flex items-baseline gap-1.5 pt-2">
-                    <span className="text-3.5xl font-extrabold tracking-tight text-indigo-300 font-mono">{brl(plan.price)}</span>
+                    <span className="text-3.5xl font-extrabold tracking-tight text-indigo-300 font-mono">
+                      {isFreePlan(plan) ? 'Gratuito' : brl(plan.price)}
+                    </span>
                     {plan.duration_days ? (
                       <span className="text-gray-500 text-xs font-semibold">/ {plan.duration_days} dias</span>
                     ) : null}
@@ -209,7 +221,9 @@ export const PlansArea: React.FC = () => {
                           : 'bg-white text-black hover:bg-gray-100'
                       }`}
                     >
-                      {subscribingId === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Assinar Agora'}
+                      {subscribingId === plan.id
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : isFreePlan(plan) ? 'Ativar Grátis' : 'Assinar Agora'}
                     </button>
                   )}
                 </div>
@@ -237,7 +251,9 @@ export const PlansArea: React.FC = () => {
             {paid ? (
               <>
                 <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
-                <h3 className="text-2xl font-extrabold">Assinatura confirmada!</h3>
+                <h3 className="text-2xl font-extrabold">
+                  {checkout.qrcode ? 'Assinatura confirmada!' : 'Plano ativado!'}
+                </h3>
                 <p className="mt-2 text-sm text-gray-400">
                   Seu plano <strong className="text-white">{checkout.planName}</strong> já está ativo.
                 </p>

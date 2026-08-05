@@ -8,13 +8,13 @@ import {
   LockKeyhole,
   Mail,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { LoginError, useAuth } from '../context/AuthContext';
 import { BrandLogo } from './BrandLogo';
 import { CheckoutScreen } from './CheckoutScreen';
 
 const DEFAULT_LOGIN_WALLPAPER = '/default-login-wallpaper.png';
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
-type AuthMode = 'login' | 'forgot' | 'verify' | 'reset' | 'confirming' | 'confirmed';
+type AuthMode = 'login' | 'forgot' | 'verify' | 'reset' | 'confirming' | 'confirmed' | 'confirm_failed';
 
 const producerId =
   new URLSearchParams(window.location.search).get('id') ||
@@ -48,6 +48,7 @@ export const LoginScreen: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
   const loginWallpaper = theme.wallpaperUrl || DEFAULT_LOGIN_WALLPAPER;
@@ -87,8 +88,9 @@ export const LoginScreen: React.FC = () => {
       })
       .catch((confirmationError) => {
         if (!isActive) return;
+        setEmail(initialConfirmationEmail);
         setError(confirmationError instanceof Error ? confirmationError.message : 'Não foi possível confirmar o e-mail.');
-        setAuthMode('confirmed');
+        setAuthMode('confirm_failed');
       });
 
     return () => {
@@ -103,6 +105,7 @@ export const LoginScreen: React.FC = () => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    setErrorCode('');
     setSuccessMessage('');
     setIsSubmitting(true);
 
@@ -110,6 +113,7 @@ export const LoginScreen: React.FC = () => {
       await login({ email: email.trim(), password });
     } catch (loginError) {
       setError(loginError instanceof Error ? loginError.message : 'Não foi possível entrar.');
+      if (loginError instanceof LoginError && loginError.code) setErrorCode(loginError.code);
     } finally {
       setIsSubmitting(false);
     }
@@ -142,6 +146,7 @@ export const LoginScreen: React.FC = () => {
 
   const resendConfirmationEmail = async () => {
     setError('');
+    setErrorCode('');
     setSuccessMessage('');
     setIsResendingConfirmation(true);
 
@@ -233,6 +238,7 @@ export const LoginScreen: React.FC = () => {
     clearEmailConfirmationUrl();
     setAuthMode('login');
     setError('');
+    setErrorCode('');
     setSuccessMessage('');
   };
 
@@ -282,16 +288,10 @@ export const LoginScreen: React.FC = () => {
                 </div>
               ) : authMode === 'confirmed' ? (
                 <div className="space-y-4 text-center">
-                  {successMessage ? (
-                    <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
-                  ) : (
-                    <LockKeyhole className="mx-auto h-10 w-10 text-red-300" />
-                  )}
+                  <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-400" />
                   <div>
-                    <h3 className="text-lg font-extrabold">{successMessage ? 'E-mail confirmado' : 'Link inválido'}</h3>
-                    <p className={`mt-2 text-xs leading-5 ${successMessage ? 'text-emerald-300' : 'text-red-300'}`}>
-                      {successMessage || error}
-                    </p>
+                    <h3 className="text-lg font-extrabold">E-mail confirmado</h3>
+                    <p className="mt-2 text-xs leading-5 text-emerald-300">{successMessage}</p>
                   </div>
                   <button
                     type="button"
@@ -300,6 +300,42 @@ export const LoginScreen: React.FC = () => {
                   >
                     Ir para login
                     <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : authMode === 'confirm_failed' ? (
+                <div className="space-y-4 text-center">
+                  <LockKeyhole className="mx-auto h-10 w-10 text-red-300" />
+                  <div>
+                    <h3 className="text-lg font-extrabold">Link expirado</h3>
+                    <p className="mt-2 text-xs leading-5 text-red-300">
+                      {error || 'Este link de confirmação não é mais válido.'}
+                    </p>
+                    <p className="mt-2 text-xs leading-5 text-gray-500">
+                      Peça um novo link para <span className="font-bold text-gray-300">{email}</span>.
+                    </p>
+                  </div>
+
+                  {successMessage && (
+                    <div role="status" className="flex items-start gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-left text-xs leading-5 text-emerald-300">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{successMessage}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={resendConfirmationEmail}
+                    disabled={isResendingConfirmation}
+                    className="theme-gradient flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-extrabold shadow-lg transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  >
+                    {isResendingConfirmation ? 'Reenviando...' : 'Reenviar e-mail de confirmação'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={showLogin}
+                    className="w-full rounded-xl border border-[#202b42] py-2.5 text-sm font-bold text-gray-300 transition hover:border-indigo-500 hover:text-white"
+                  >
+                    Voltar para login
                   </button>
                 </div>
               ) : authMode === 'login' ? (
@@ -369,7 +405,7 @@ export const LoginScreen: React.FC = () => {
                 {error && (
                   <div role="alert" className="space-y-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs leading-5 text-red-300">
                     <p>{error}</p>
-                    {error.toLowerCase().includes('verifique') && (
+                    {errorCode === 'email_not_confirmed' && (
                       <button
                         type="button"
                         onClick={resendConfirmationEmail}

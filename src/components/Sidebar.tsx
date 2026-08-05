@@ -27,7 +27,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { currentUser, activeScreen, navigateTo, certificates, xpProgress } = usePlatform();
   const { logout } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const navItems = [
     { id: 'home', label: 'Início & Catálogo', icon: Layout, desc: 'Aulas, ementas e trilhas' },

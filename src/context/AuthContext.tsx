@@ -75,6 +75,13 @@ interface LoginResponse {
   token?: string;
   message?: string;
   error?: string;
+  code?: string;
+}
+
+export class LoginError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+  }
 }
 
 interface MeResponse {
@@ -366,7 +373,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const data = (await response.json().catch(() => ({}))) as LoginResponse;
 
     if (!response.ok) {
-      throw new Error(data.message || data.error || 'E-mail ou senha inválidos.');
+      throw new LoginError(data.error || data.message || 'E-mail ou senha inválidos.', data.code);
     }
 
     if (!data.token) {

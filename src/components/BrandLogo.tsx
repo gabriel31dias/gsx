@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+
+const DEFAULT_LOGO_URL = '/logo-bluevision.png';
 
 interface BrandLogoProps {
   compact?: boolean;
   showSubtitle?: boolean;
+  iconOnly?: boolean;
   className?: string;
 }
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
   compact = false,
   showSubtitle = true,
+  iconOnly = false,
   className = '',
 }) => {
   const { theme } = useAuth();
@@ -25,27 +28,36 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       <img
         src={theme.logoUrl}
         alt="Logo da plataforma"
-        className={`${compact ? 'h-8 max-w-36' : 'h-10 max-w-44'} w-auto object-contain object-left ${className}`}
+        className={`${iconOnly ? 'h-8 w-8 rounded-lg object-contain' : compact ? 'h-8 max-w-36' : 'h-10 max-w-44'} object-left ${className}`}
         onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  if (iconOnly) {
+    return (
+      <img
+        src={DEFAULT_LOGO_URL}
+        alt="Logo padrão da plataforma"
+        className={`h-8 w-8 rounded-lg object-contain brightness-0 invert ${className}`}
       />
     );
   }
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className={`theme-gradient rounded-xl shadow-lg ${compact ? 'p-2' : 'p-2.5'}`}>
-        <Sparkles className={compact ? 'h-4 w-4 text-white' : 'h-5 w-5 text-white'} />
-      </div>
-      <div className="flex flex-col">
-        <span className={`${compact ? 'text-sm' : 'text-sm'} font-extrabold tracking-tight text-white leading-none`}>
-          ALURA<span className="theme-primary-text ml-0.5">DEV</span>
-        </span>
-        {showSubtitle && (
-          <span className="mt-1 font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-gray-500">
+      <img
+        src={DEFAULT_LOGO_URL}
+        alt="Logo padrão da plataforma"
+        className={`${compact ? 'h-8 max-w-36' : 'h-10 max-w-44'} w-auto object-contain object-left brightness-0 invert`}
+      />
+      {showSubtitle && (
+        <div className="flex flex-col">
+          <span className="font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-gray-500">
             Hub de carreira
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

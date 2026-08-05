@@ -137,6 +137,10 @@ function MainScreenShell() {
 
 function AuthenticatedApp() {
   const { isAuthenticated, isLoading } = useAuth();
+  const emailConfirmationParams = new URLSearchParams(window.location.search);
+  const isEmailConfirmationLink = emailConfirmationParams.get('confirm_email') === '1'
+    && emailConfirmationParams.get('email')
+    && emailConfirmationParams.get('token');
 
   if (isLoading) {
     return (
@@ -151,7 +155,7 @@ function AuthenticatedApp() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (isEmailConfirmationLink || !isAuthenticated) {
     return <LoginScreen />;
   }
 

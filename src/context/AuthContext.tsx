@@ -12,6 +12,7 @@ export interface PlatformTheme {
   textColor: string;
   mutedTextColor: string;
   logoUrl: string | null;
+  wallpaperUrl: string | null;
   memberAreaTitle: string;
   primaryDescription: string;
   secondaryDescription: string;
@@ -23,13 +24,14 @@ export interface PlatformTheme {
 }
 
 const DEFAULT_THEME: PlatformTheme = {
-  primaryColor: '#6366f1',
-  secondaryColor: '#a855f7',
-  backgroundColor: '#070a13',
-  surfaceColor: '#0e1424',
-  textColor: '#f9fafb',
-  mutedTextColor: '#9ca3af',
+  primaryColor: '#3b82f6',
+  secondaryColor: '#1d4ed8',
+  backgroundColor: '#0a0f1e',
+  surfaceColor: '#141b2e',
+  textColor: '#e8edf7',
+  mutedTextColor: '#8b97ad',
   logoUrl: null,
+  wallpaperUrl: null,
   memberAreaTitle: 'CATÁLOGO OFICIAL ALURADEV',
   primaryDescription: 'Aprenda no seu ritmo. Evolua com prática.',
   secondaryDescription: 'Consulte abaixo somente os cursos disponíveis para sua conta, carregados diretamente da plataforma.',
@@ -89,6 +91,7 @@ interface ThemeColorsResponse {
   text_color?: string;
   muted_text_color?: string;
   logo_url?: string | null;
+  wallpaper_url?: string | null;
   member_area_title?: string;
   primary_description?: string;
   secondary_description?: string;
@@ -145,6 +148,7 @@ function readStoredTheme(): PlatformTheme {
       textColor: isHexColor(theme.textColor) ? theme.textColor : DEFAULT_THEME.textColor,
       mutedTextColor: isHexColor(theme.mutedTextColor) ? theme.mutedTextColor : DEFAULT_THEME.mutedTextColor,
       logoUrl: normalizeAssetUrl(theme.logoUrl),
+      wallpaperUrl: normalizeAssetUrl(theme.wallpaperUrl),
       memberAreaTitle: normalizeThemeText(theme.memberAreaTitle, DEFAULT_THEME.memberAreaTitle),
       primaryDescription: normalizeThemeText(theme.primaryDescription, DEFAULT_THEME.primaryDescription),
       secondaryDescription: normalizeThemeText(theme.secondaryDescription, DEFAULT_THEME.secondaryDescription),
@@ -262,6 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? colors.muted_text_color
             : DEFAULT_THEME.mutedTextColor,
           logoUrl: normalizeAssetUrl(colors.logo_url ?? data.theme.logo_url),
+          wallpaperUrl: normalizeAssetUrl(colors.wallpaper_url ?? data.theme.wallpaper_url),
           memberAreaTitle: normalizeThemeText(
             data.theme.member_area_title,
             DEFAULT_THEME.memberAreaTitle,

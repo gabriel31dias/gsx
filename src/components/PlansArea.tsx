@@ -17,6 +17,12 @@ interface ApiPlan {
 const brl = (value: number | string) =>
   Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const planPriceValue = (value: number | string) => (
+  typeof value === 'number' ? value : Number(value.replace(',', '.'))
+);
+
+const isPaidPlan = (plan: ApiPlan) => planPriceValue(plan.price) > 0;
+
 interface PixCheckout {
   orderId: string;
   planName: string;
@@ -106,7 +112,7 @@ export const PlansArea: React.FC = () => {
     const query = producerId ? `?id=${encodeURIComponent(producerId)}` : '';
     fetch(`${API_BASE_URL}/api/v1/plans${query}`)
       .then((r) => r.json())
-      .then((data) => setPlans(data.plans ?? []))
+      .then((data) => setPlans((data.plans ?? []).filter(isPaidPlan)))
       .catch(() => setError('Não foi possível carregar os planos.'))
       .finally(() => setLoading(false));
   }, [producerId]);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePlatform } from '../context/PlatformContext';
 import { 
   Compass, 
@@ -7,9 +7,9 @@ import {
   CreditCard, 
   ShieldAlert, 
   X, 
-  Award, 
   Flame, 
   User, 
+  ChevronLeft,
   ChevronRight,
   Layout,
   Play,
@@ -25,8 +25,9 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { currentUser, activeScreen, navigateTo, certificates, badges, xpProgress } = usePlatform();
+  const { currentUser, activeScreen, navigateTo, certificates, xpProgress } = usePlatform();
   const { logout } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const navItems = [
     { id: 'home', label: 'Início & Catálogo', icon: Layout, desc: 'Aulas, ementas e trilhas' },
@@ -36,48 +37,60 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { id: 'plans', label: 'Upgrade de Planos', icon: CreditCard, desc: 'Certificações premium' },
   ];
 
-  const unlockedBadges = badges.filter(b => b.unlockedAt).length;
-
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-[#090d16] border-r border-[#1a2333]/60 h-screen sticky top-0 shrink-0 text-white select-none z-40 transition-all duration-300">
-        <div className="flex flex-col h-full justify-between p-5 space-y-6">
+      <aside className={`hidden md:flex flex-col bg-[#090d16] border-r border-[#1a2333]/60 h-screen sticky top-0 shrink-0 text-white select-none z-40 transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64 lg:w-72'}`}>
+        <div className={`flex flex-col h-full justify-between space-y-6 ${isCollapsed ? 'p-3' : 'p-5'}`}>
           
           {/* Top Branding Section */}
           <div className="space-y-6">
-            <div 
-              onClick={() => navigateTo('home')} 
-              className="flex items-center gap-3 cursor-pointer group px-2 pt-2"
-              id="sidebar-logo"
-            >
-              <BrandLogo />
+            <div className={`flex items-center gap-2 pt-2 ${isCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
+              {!isCollapsed && (
+                <div
+                  onClick={() => navigateTo('home')}
+                  className="flex min-w-0 cursor-pointer"
+                  id="sidebar-logo"
+                >
+                  <BrandLogo showSubtitle={false} />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsCollapsed((current) => !current)}
+                aria-label={isCollapsed ? 'Expandir menu' : 'Minimizar menu'}
+                title={isCollapsed ? 'Expandir menu' : 'Minimizar menu'}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#1b253b] bg-[#0e1626] text-gray-400 transition hover:border-indigo-500/40 hover:bg-indigo-600/10 hover:text-white"
+              >
+                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              </button>
             </div>
 
             {/* Quick Micro Profile Progress details */}
             <div 
               onClick={() => navigateTo('profile')}
-              className="bg-[#0e1626] border border-[#1b263b] rounded-2xl p-4 hover:border-indigo-550 hover:bg-[#121c32] hover:border-indigo-500/40 transition-all cursor-pointer group relative overflow-hidden shadow-md"
+              className={`bg-[#0e1626] border border-[#1b263b] rounded-2xl hover:border-indigo-550 hover:bg-[#121c32] hover:border-indigo-500/40 transition-all cursor-pointer group relative shadow-md ${isCollapsed ? 'flex justify-center overflow-visible p-2' : 'overflow-hidden p-4'}`}
+              title={isCollapsed ? `${currentUser.name} - Editar perfil` : undefined}
             >
-              <div className="flex items-center gap-3">
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
                 <img 
                   referrerPolicy="no-referrer"
                   src={currentUser.avatar}
                   alt={currentUser.name}
                   className="w-10 h-10 rounded-xl object-cover border border-[#1e2a42] group-hover:scale-102 transition"
                 />
-                <div className="text-left">
+                {!isCollapsed && <div className="text-left">
                   <h4 className="font-bold text-xs text-gray-200 line-clamp-1 group-hover:text-white transition">
                     {currentUser.name}
                   </h4>
                   <span className="bg-indigo-500/10 border border-indigo-500/20 text-indigo-450 text-indigo-400 font-extrabold px-1.5 py-0.5 rounded text-[8px] uppercase tracking-wider block w-fit mt-1">
                     Plano {currentUser.membershipPlan === 'Nenhum' ? 'Standard' : currentUser.membershipPlan}
                   </span>
-                </div>
+                </div>}
               </div>
 
               {/* Progress dynamic indicators (XP/nível reais) */}
-              <div className="mt-3.5 space-y-1">
+              {!isCollapsed && <div className="mt-3.5 space-y-1">
                 <div className="flex justify-between items-center text-[9px] text-gray-400">
                   <span className="font-bold flex items-center gap-0.5 text-amber-500">
                     <Flame className="w-3" />
@@ -96,15 +109,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     {xpProgress.xp_into_level}/{xpProgress.xp_for_next_level} XP p/ nível {xpProgress.level + 1}
                   </p>
                 )}
-              </div>
+              </div>}
             </div>
           </div>
 
           {/* Navigation Links vertical list */}
           <nav className="flex-1 space-y-1.5 pt-2">
-            <span className="text-[9px] text-gray-500 uppercase tracking-widest px-3 font-semibold block mb-2 font-mono">
+            {!isCollapsed && <span className="text-[9px] text-gray-500 uppercase tracking-widest px-3 font-semibold block mb-2 font-mono">
               Navegação Principal
-            </span>
+            </span>}
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeScreen === item.id;
@@ -112,18 +125,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <button
                   key={item.id}
                   onClick={() => navigateTo(item.id as any)}
-                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all duration-300 group relative cursor-pointer ${
-                    isActive 
-                    ? 'text-white bg-indigo-500/10 border-l-4 border-indigo-500 font-bold' 
+                  aria-label={item.label}
+                  className={`flex items-center text-left transition-all duration-200 group relative cursor-pointer ${
+                    isCollapsed
+                      ? 'z-10 h-11 w-14 overflow-hidden rounded-2xl border border-transparent hover:z-50 hover:w-[14.5rem] hover:border-indigo-400/25 hover:bg-[#111827] hover:shadow-[0_16px_34px_rgba(0,0,0,0.38)] focus-visible:z-50 focus-visible:w-[14.5rem] focus-visible:border-indigo-400/25 focus-visible:bg-[#111827] focus-visible:shadow-[0_16px_34px_rgba(0,0,0,0.38)]'
+                      : 'w-full gap-3 rounded-xl px-3 py-2.5'
+                  } ${
+                    isActive
+                    ? isCollapsed
+                      ? 'bg-indigo-500/15 text-white ring-1 ring-indigo-500/25'
+                      : 'text-white bg-indigo-500/10 border-l-4 border-indigo-500 font-bold'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <Icon className={`w-4.5 h-4.5 transition-colors group-hover:scale-105 duration-200 shrink-0 ${isActive ? 'text-indigo-400' : 'text-gray-400 group-hover:text-gray-200'}`} />
-                  <div className="text-xs">
+                  <span className={isCollapsed ? `flex h-11 w-14 shrink-0 items-center justify-center transition-colors duration-200 ${isActive ? 'text-indigo-300' : ''}` : 'contents'}>
+                    <Icon className={`w-4.5 h-4.5 transition-colors group-hover:scale-105 duration-200 shrink-0 ${isActive ? 'text-indigo-400' : 'text-gray-400 group-hover:text-gray-200'}`} />
+                  </span>
+                  {isCollapsed && (
+                    <span className="pr-4 text-xs font-bold tracking-normal text-gray-100 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 whitespace-nowrap">
+                      {item.label}
+                    </span>
+                  )}
+                  {!isCollapsed && <div className="text-xs">
                     <p className="font-bold leading-tight">{item.label}</p>
                     <span className={`text-[9px] block font-normal mt-0.5 ${isActive ? 'text-indigo-300/80' : 'text-gray-500'}`}>{item.desc}</span>
-                  </div>
-                  {isActive && <ChevronRight className="w-4 h-4 ml-auto text-indigo-400 shrink-0" />}
+                  </div>}
+                  {isActive && !isCollapsed && <ChevronRight className="w-4 h-4 ml-auto text-indigo-400 shrink-0" />}
                 </button>
               );
             })}
@@ -133,48 +160,55 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <div className="pt-4 border-t border-[#1a2333]/50 mt-3">
                 <button
                   onClick={() => navigateTo('admin')}
-                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all duration-300 group relative cursor-pointer ${
+                  aria-label="Painel Admin"
+                  className={`flex items-center text-left transition-all duration-200 group relative cursor-pointer ${
+                    isCollapsed
+                      ? 'z-10 h-11 w-14 overflow-hidden rounded-2xl border border-transparent hover:z-50 hover:w-[12.5rem] hover:border-purple-400/25 hover:bg-[#181326] hover:shadow-[0_16px_34px_rgba(0,0,0,0.38)] focus-visible:z-50 focus-visible:w-[12.5rem] focus-visible:border-purple-400/25 focus-visible:bg-[#181326] focus-visible:shadow-[0_16px_34px_rgba(0,0,0,0.38)]'
+                      : 'w-full gap-3 rounded-xl px-3 py-2.5'
+                  } ${
                     activeScreen === 'admin'
-                    ? 'text-purple-300 bg-purple-500/10 border-l-4 border-purple-500 font-bold'
+                    ? isCollapsed
+                      ? 'bg-purple-500/15 text-purple-200 ring-1 ring-purple-500/25'
+                      : 'text-purple-300 bg-purple-500/10 border-l-4 border-purple-500 font-bold'
                     : 'text-purple-400/80 hover:text-purple-300 hover:bg-purple-950/10'
                   }`}
                 >
-                  <ShieldAlert className="w-4.5 h-4.5 text-purple-500 shrink-0" />
-                  <div className="text-xs">
+                  <span className={isCollapsed ? 'flex h-11 w-14 shrink-0 items-center justify-center transition-colors duration-200' : 'contents'}>
+                    <ShieldAlert className="w-4.5 h-4.5 text-purple-500 shrink-0" />
+                  </span>
+                  {isCollapsed && (
+                    <span className="pr-4 text-xs font-bold tracking-normal text-purple-100 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 whitespace-nowrap">
+                      Painel Admin
+                    </span>
+                  )}
+                  {!isCollapsed && <div className="text-xs">
                     <p className="font-bold leading-tight">Painel Admin</p>
                     <span className="text-[9px] text-gray-500 block font-normal mt-0.5 font-mono">Controle de aulas</span>
-                  </div>
+                  </div>}
                 </button>
               </div>
             )}
           </nav>
 
-          {/* Bottom stats block */}
-          <div className="bg-[#0e1424] border border-[#1b253b] rounded-2xl p-4 space-y-3 shadow-md">
-            <div className="flex items-center justify-between text-xs text-gray-450 text-gray-300 border-b border-[#1b253b] pb-2">
-              <span className="font-bold text-[10px] tracking-wider uppercase font-mono text-gray-450 text-gray-400">Progresso Geral</span>
-              <Award className="w-4 h-4 text-indigo-400" />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-center">
-              <div className="bg-[#12192c] p-2 rounded-xl border border-[#1b253b]/40">
-                <p className="text-xs font-mono font-black text-indigo-400">{certificates.length}</p>
-                <p className="text-[8px] text-gray-500 uppercase tracking-wider mt-0.5 font-mono">Diplomas</p>
-              </div>
-              <div className="bg-[#12192c] p-2 rounded-xl border border-[#1b253b]/40">
-                <p className="text-xs font-mono font-black text-purple-400">{unlockedBadges}</p>
-                <p className="text-[8px] text-gray-500 uppercase tracking-wider mt-0.5 font-mono">Medalhas</p>
-              </div>
-            </div>
-
-            <button 
-              onClick={() => navigateTo('profile')}
-              className="w-full text-center flex items-center justify-center gap-1.5 py-2 bg-[#12192c] hover:bg-indigo-600/15 rounded-xl text-[9px] uppercase font-bold tracking-widest text-indigo-300 hover:text-white border border-[#1a253d] hover:border-indigo-500/50 transition cursor-pointer"
-            >
+          <button 
+            onClick={() => navigateTo('profile')}
+            aria-label="Editar Perfil"
+            className={`group relative text-center flex items-center bg-[#12192c] text-[9px] uppercase font-bold tracking-widest text-indigo-300 border border-[#1a253d] transition-all duration-200 hover:bg-indigo-600/15 hover:text-white hover:border-indigo-500/50 cursor-pointer ${
+              isCollapsed
+                ? 'z-10 h-11 w-14 overflow-hidden justify-start rounded-2xl hover:z-50 hover:w-44 hover:bg-[#111827] hover:shadow-[0_16px_34px_rgba(0,0,0,0.38)] focus-visible:z-50 focus-visible:w-44 focus-visible:bg-[#111827] focus-visible:shadow-[0_16px_34px_rgba(0,0,0,0.38)]'
+                : 'w-full justify-center gap-1.5 rounded-xl py-2.5'
+            }`}
+          >
+            <span className={isCollapsed ? 'flex h-11 w-14 shrink-0 items-center justify-center' : 'contents'}>
               <User className="w-3 h-3" />
-              Editar Perfil
-            </button>
-          </div>
+            </span>
+            {isCollapsed && (
+              <span className="pr-4 tracking-normal opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 whitespace-nowrap">
+                Editar Perfil
+              </span>
+            )}
+            {!isCollapsed && 'Editar Perfil'}
+          </button>
 
         </div>
       </aside>

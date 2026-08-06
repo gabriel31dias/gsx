@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Check, CheckCircle2, Copy, Eye, EyeOff, Loader2, QrCode } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, Copy, CreditCard, Eye, EyeOff, Loader2, QrCode, ShieldCheck } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { useAuth } from '../context/AuthContext';
+import { EMPTY_CARD, cardPayload, maskCardNumber, maskExpiration, type SubscriptionResult } from '../lib/card';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const DEFAULT_LOGIN_WALLPAPER = '/default-login-wallpaper.png';
@@ -23,6 +24,7 @@ interface PixResult {
   qrcode: string;
   expiration_date?: string;
 }
+
 
 interface ViaCepResponse {
   erro?: boolean;
@@ -48,7 +50,11 @@ const maskCep = (value: string) => {
 
 export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { theme } = useAuth();
-  const [step, setStep] = useState<'personal' | 'address' | 'plans' | 'pix'>('personal');
+  const [step, setStep] = useState<'personal' | 'address' | 'plans' | 'card' | 'pix'>('personal');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix');
+  // ponytail: cartao vive so neste state ate o POST; nada de localStorage/log.
+  const [card, setCard] = useState(EMPTY_CARD);
+  const [subscription, setSubscription] = useState<SubscriptionResult | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [planId, setPlanId] = useState('');
   const [form, setForm] = useState({
@@ -142,25 +148,43 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     setStep(next);
   };
 
-  // Passo 2 -> 3: gera o PIX com o plano escolhido.
-  const generatePix = async () => {
+  // Conclui o cadastro: PIX (avulso) ou cartão (assinatura recorrente mensal).
+  const submitCheckout = async (method: 'pix' | 'card') => {
     setError('');
     setIsSubmitting(true);
     try {
       const { cep, rua, bairro, cidade, uf, confirmPassword, ...rest } = form;
       const address = `${rua}, ${bairro}, ${cidade}${uf ? `/${uf}` : ''} - CEP ${cep}`;
+
+      const payload: Record<string, unknown> = { id: producerId, plan_id: planId, ...rest, address };
+      if (method === 'card') {
+        payload.payment_method = 'card';
+        payload.card = cardPayload(card);
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/v1/checkout/transactions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: producerId, plan_id: planId, ...rest, address }),
+        body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || (data.errors && data.errors[0]) || 'Falha ao concluir o cadastro.');
+
+      // Cartão salvo: limpa os dados sensíveis do state assim que a gateway responde.
+      if (method === 'card') setCard(EMPTY_CARD);
 
       // Plano gratuito: sem PIX, cadastro já sai com o plano ativo.
       if (data.free) {
         setOrderId(data.order_id);
         setPaid(true);
+        setStep('pix');
+        return;
+      }
+
+      if (data.subscription) {
+        setSubscription(data.subscription);
+        setOrderId(data.order_id);
+        setPaid(data.status === 'paid');
         setStep('pix');
         return;
       }
@@ -176,7 +200,8 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
     }
   };
 
-  const freeSelected = plans.some((plan) => plan.id === planId && isFreePlan(plan));
+  const selectedPlan = plans.find((plan) => plan.id === planId);
+  const freeSelected = Boolean(selectedPlan && isFreePlan(selectedPlan));
 
   const copy = async () => {
     if (!pix?.qrcode) return;
@@ -208,6 +233,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
   const stepBack = () => {
     if (step === 'address') setStep('personal');
     else if (step === 'plans') setStep('address');
+    else if (step === 'card') setStep('plans');
     else onBack();
   };
   const stepIndicator = (
@@ -217,7 +243,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
         { key: 'address', label: 'Endereço' },
         { key: 'plans', label: 'Plano' },
       ].map(({ key, label }, index) => {
-        const order = ['personal', 'address', 'plans'];
+        const order = ['personal', 'address', 'plans', 'card'];
         const active = order.indexOf(step) >= index;
         return (
           <li key={key} className="flex items-center gap-1.5">
@@ -260,17 +286,41 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
           <div className="w-full max-w-sm animate-fadeIn xl:max-w-md">
             <BrandLogo compact showSubtitle={false} className="mb-4 lg:hidden" />
 
-            {step === 'pix' && paid ? (
+            {step === 'pix' && subscription && !paid ? (
+          <div className="rounded-[28px] border border-[#1b253b] bg-[#0b101e]/90 p-7 text-center">
+            <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-indigo-400" />
+            <h2 className="text-xl font-extrabold">Confirmando com a operadora…</h2>
+            <p className="mt-2 text-sm text-gray-400">
+              Assinatura registrada no cartão {subscription.card.brand?.toUpperCase()} •••• {subscription.card.last4}.
+              Assim que a operadora aprovar, seu acesso é liberado automaticamente.
+            </p>
+            <button
+              type="button"
+              onClick={onBack}
+              className="mx-auto mt-6 flex items-center gap-2 rounded-xl border border-[#202b42] px-6 py-3 text-sm font-bold text-gray-300"
+            >
+              Ir para o login
+            </button>
+          </div>
+        ) : step === 'pix' && paid ? (
           <div className="rounded-[28px] border border-emerald-500/30 bg-[#0b101e]/90 p-7 text-center">
             <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-emerald-400" />
             <h2 className="text-2xl font-extrabold">
-              {freeSelected ? 'Cadastro concluído!' : 'Pagamento confirmado!'}
+              {freeSelected ? 'Cadastro concluído!' : subscription ? 'Assinatura ativa!' : 'Pagamento confirmado!'}
             </h2>
             <p className="mt-2 text-sm text-gray-400">
               {freeSelected
                 ? 'Seu plano gratuito já está ativo. Confirme seu e-mail e faça login para entrar na plataforma.'
-                : 'Seu acesso foi liberado. Faça login com seu e-mail para entrar na plataforma.'}
+                : subscription
+                  ? 'Seu acesso foi liberado e a renovação é automática todo mês. Faça login para entrar na plataforma.'
+                  : 'Seu acesso foi liberado. Faça login com seu e-mail para entrar na plataforma.'}
             </p>
+            {subscription && (
+              <p className="mx-auto mt-4 inline-flex items-center gap-2 rounded-xl border border-[#202b42] bg-[#0e1626] px-3 py-2 font-mono text-xs text-gray-300">
+                <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
+                {subscription.card.brand?.toUpperCase()} •••• {subscription.card.last4} · val. {subscription.card.expiration}
+              </p>
+            )}
             <button
               type="button"
               onClick={onBack}
@@ -358,6 +408,33 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               ))}
             </div>
 
+            {/* Forma de pagamento: só faz sentido em plano pago. */}
+            {!freeSelected && planId && (
+              <div className="mt-5">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">Forma de pagamento</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: 'pix', label: 'PIX', hint: 'Pagamento único', Icon: QrCode },
+                    { id: 'card', label: 'Cartão', hint: 'Assina e renova todo mês', Icon: CreditCard },
+                  ] as const).map(({ id, label, hint, Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setPaymentMethod(id)}
+                      className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                        paymentMethod === id ? 'border-indigo-500 bg-indigo-500/10' : 'border-[#202b42] bg-[#0e1626]'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 text-sm font-bold text-white">
+                        <Icon className="h-4 w-4" /> {label}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-gray-500">{hint}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {error && (
               <div role="alert" className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">
                 {error}
@@ -375,15 +452,115 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
               </button>
               <button
                 type="button"
-                onClick={generatePix}
+                onClick={() => (!freeSelected && paymentMethod === 'card' ? setStep('card') : submitCheckout('pix'))}
                 disabled={isSubmitting || !planId}
                 className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
               >
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : freeSelected ? <Check className="h-4 w-4" /> : <QrCode className="h-4 w-4" />}
-                {isSubmitting ? 'Enviando...' : freeSelected ? 'Criar conta grátis' : 'Gerar PIX'}
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : freeSelected ? <Check className="h-4 w-4" />
+                  : paymentMethod === 'card' ? <CreditCard className="h-4 w-4" />
+                  : <QrCode className="h-4 w-4" />}
+                {isSubmitting ? 'Enviando...'
+                  : freeSelected ? 'Criar conta grátis'
+                  : paymentMethod === 'card' ? 'Continuar'
+                  : 'Gerar PIX'}
               </button>
             </div>
           </div>
+        ) : step === 'card' ? (
+          <form
+            onSubmit={(event) => { event.preventDefault(); submitCheckout('card'); }}
+            className="rounded-3xl border border-[#1b253b] bg-[#0b101e]/90 p-5 sm:p-6"
+          >
+            {stepIndicator}
+            <h2 className="mb-1 text-xl font-extrabold">Dados do cartão</h2>
+            <p className="mb-4 text-xs text-gray-500">
+              {selectedPlan ? `${brl(selectedPlan.price)} por mês, renovação automática.` : 'Assinatura mensal com renovação automática.'}
+            </p>
+
+            <div className="space-y-2.5">
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold text-gray-300">Número do cartão</span>
+                <input
+                  value={card.number}
+                  onChange={(e) => setCard((prev) => ({ ...prev, number: maskCardNumber(e.target.value) }))}
+                  inputMode="numeric"
+                  autoComplete="cc-number"
+                  placeholder="0000 0000 0000 0000"
+                  required
+                  minLength={13}
+                  className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] px-3.5 py-2 font-mono text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-bold text-gray-300">Nome impresso no cartão</span>
+                <input
+                  value={card.holderName}
+                  onChange={(e) => setCard((prev) => ({ ...prev, holderName: e.target.value.toUpperCase() }))}
+                  autoComplete="cc-name"
+                  placeholder="FULANO DE TAL"
+                  required
+                  className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] px-3.5 py-2 text-sm uppercase text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-bold text-gray-300">Validade</span>
+                  <input
+                    value={card.expiration}
+                    onChange={(e) => setCard((prev) => ({ ...prev, expiration: maskExpiration(e.target.value) }))}
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    placeholder="MM/AAAA"
+                    required
+                    pattern="\d{2}/\d{2}(\d{2})?"
+                    className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] px-3.5 py-2 font-mono text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-bold text-gray-300">CVV</span>
+                  <input
+                    value={card.cvv}
+                    onChange={(e) => setCard((prev) => ({ ...prev, cvv: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    placeholder="123"
+                    required
+                    minLength={3}
+                    className="w-full rounded-xl border border-[#202b42] bg-[#0e1626] px-3.5 py-2 font-mono text-sm text-white outline-none transition placeholder:text-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <p className="mt-3 flex items-start gap-1.5 text-[11px] text-gray-500">
+              <ShieldCheck className="mt-px h-3.5 w-3.5 shrink-0 text-emerald-400" />
+              Os dados do cartão vão direto para a operadora. Guardamos apenas a bandeira, os 4 últimos dígitos e a validade.
+            </p>
+
+            {error && (
+              <div role="alert" className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+                {error}
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={stepBack} className={secondaryButtonClass}>
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`${primaryButtonClass} disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                {isSubmitting ? 'Processando...' : 'Assinar'}
+              </button>
+            </div>
+          </form>
         ) : step === 'address' ? (
           <form onSubmit={goTo('plans')} className="rounded-3xl border border-[#1b253b] bg-[#0b101e]/90 p-4 sm:p-5">
             {stepIndicator}

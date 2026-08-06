@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Layout,
   Play,
+  ClipboardList,
   LogOut
 } from 'lucide-react';
 import { UserRole } from '../types';
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     // ponytail: ocultos por enquanto — reativar quando as páginas estiverem prontas
     // { id: 'ranking', label: 'Estatísticas & Ranking', icon: Trophy, desc: 'Quadro de líderes de XP' },
     // { id: 'live', label: 'Webinars Ao Vivo', icon: Compass, desc: 'Mentorias e lives ativas' },
+    { id: 'quizzes', label: 'Testes', icon: ClipboardList, desc: 'Avaliações de múltipla escolha' },
     { id: 'plans', label: 'Upgrade de Planos', icon: CreditCard, desc: 'Certificações premium' },
   ];
 

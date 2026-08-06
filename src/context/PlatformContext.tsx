@@ -31,7 +31,7 @@ interface PlatformContextProps {
   coursesError: string | null;
   lessonsLoadingCourseId: string | null;
   lessonsError: string | null;
-  activeScreen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans';
+  activeScreen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes';
   activeCourseId: string | null;
   activeLessonId: string | null;
   refreshCourses: () => Promise<void>;
@@ -45,7 +45,7 @@ interface PlatformContextProps {
   refreshBilling: () => Promise<void>;
 
   // Navigation & View Actions
-  navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans', courseId?: string | null, lessonId?: string | null) => void;
+  navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes', courseId?: string | null, lessonId?: string | null) => void;
   
   // User Actions
   updateProfile: (name: string, email: string, avatar: string) => void;
@@ -63,7 +63,8 @@ interface PlatformContextProps {
   updateLessonProgress: (courseId: string, lessonId: string, seconds: number, durationSeconds: number) => Promise<void>;
   markLessonComplete: (courseId: string, lessonId: string) => Promise<void>;
   submitQuizAttempt: (courseId: string, quizId: string, answers: number[], score: number, passed: boolean) => void;
-  addLessonComment: (courseId: string, lessonId: string, content: string) => void;
+  addLessonComment: (courseId: string, lessonId: string, content: string) => Promise<void>;
+  loadLessonComments: (courseId: string, lessonId: string) => Promise<void>;
   
   // Course Management API for Admin
   addCourse: (course: Course) => void;
@@ -90,6 +91,13 @@ interface ApiCourse {
     percentage: number | string;
     last_accessed_at: string | null;
   };
+}
+
+interface ApiLessonComment {
+  id: string;
+  content: string;
+  created_at: string;
+  user?: { id: string; name: string | null; avatar_url: string | null };
 }
 
 interface CoursesResponse {
@@ -173,6 +181,17 @@ export interface BillingData {
     status: string;
     started_at: string;
     expires_at: string | null;
+  } | null;
+  // Cartão da assinatura recorrente: só bandeira, 4 últimos dígitos e validade.
+  payment_method: {
+    type: string;
+    brand?: string | null;
+    last4?: string | null;
+    holder_name?: string | null;
+    expiration?: string | null;
+    interval?: string | null;
+    status?: string | null;
+    next_charge_at?: string | null;
   } | null;
   invoices: BillingInvoice[];
 }
@@ -360,7 +379,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   // UI routing helper
-  const [activeScreen, setActiveScreen] = useState<'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans'>('home');
+  const [activeScreen, setActiveScreen] = useState<'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes'>('home');
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 
@@ -1000,29 +1019,67 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setTimeout(() => checkAndUnlockBadges(), 1000);
   };
 
-  const addLessonComment = (courseId: string, lessonId: string, content: string) => {
-    setCourses(prev => prev.map(c => {
-      if (c.id === courseId) {
-        const nextModules = c.modules.map(mod => {
-          const nextLessons = mod.lessons.map(les => {
-            if (les.id === lessonId) {
-              const newComment: Comment = {
-                id: `cmt-${Date.now()}`,
-                userName: currentUser.name,
-                userAvatar: currentUser.avatar,
-                content,
-                date: 'Hoje'
-              };
-              return { ...les, comments: [newComment, ...les.comments] };
-            }
-            return les;
-          });
-          return { ...mod, lessons: nextLessons };
-        });
-        return { ...c, modules: nextModules };
-      }
-      return c;
-    }));
+  // Dúvidas da aula (backend: /api/v1/lessons/:id/comments)
+  const mapApiComment = (c: ApiLessonComment): Comment => ({
+    id: String(c.id),
+    userName: c.user?.name || 'Aluno',
+    userAvatar: normalizeBackendUrl(c.user?.avatar_url ?? null) ?? undefined,
+    content: c.content,
+    date: new Date(c.created_at).toLocaleDateString('pt-BR'),
+  });
+
+  const setLessonComments = (
+    courseId: string,
+    lessonId: string,
+    update: (current: Comment[]) => Comment[],
+  ) => {
+    setCourses(prev => prev.map(c => (
+      c.id === courseId
+        ? {
+            ...c,
+            modules: c.modules.map(mod => ({
+              ...mod,
+              lessons: mod.lessons.map(les => (
+                les.id === lessonId ? { ...les, comments: update(les.comments) } : les
+              )),
+            })),
+          }
+        : c
+    )));
+  };
+
+  const requestComments = async (lessonId: string, init?: RequestInit) => {
+    if (!session?.token) throw new Error('Nenhuma sessão ativa.');
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/lessons/${lessonId}/comments`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.token}`,
+        ...init?.headers,
+      },
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || data.errors?.[0] || 'Não foi possível carregar as dúvidas.');
+    }
+    return data;
+  };
+
+  const loadLessonComments = async (courseId: string, lessonId: string) => {
+    const data = await requestComments(lessonId);
+    const comments: Comment[] = (data.comments ?? []).map(mapApiComment);
+    setLessonComments(courseId, lessonId, () => comments);
+  };
+
+  const addLessonComment = async (courseId: string, lessonId: string, content: string) => {
+    const data = await requestComments(lessonId, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+    const comment = mapApiComment(data.comment);
+    setLessonComments(courseId, lessonId, current => [comment, ...current]);
   };
 
   // Admin APIs
@@ -1111,6 +1168,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       markLessonComplete,
       submitQuizAttempt,
       addLessonComment,
+      loadLessonComments,
       
       addCourse,
       updateCourse,

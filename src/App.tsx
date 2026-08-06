@@ -16,6 +16,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { LiveStreamArea } from './components/LiveStreamArea';
 import { GamificationRanking } from './components/GamificationRanking';
 import { PlansArea } from './components/PlansArea';
+import { QuizzesArea } from './components/QuizzesArea';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginScreen } from './components/LoginScreen';
 
@@ -129,6 +130,7 @@ function MainScreenShell() {
           {activeScreen === 'ranking' && <GamificationRanking />}
           {activeScreen === 'live' && <LiveStreamArea />}
           {activeScreen === 'plans' && <PlansArea />}
+          {activeScreen === 'quizzes' && <QuizzesArea />}
         </main>
       </div>
     </div>

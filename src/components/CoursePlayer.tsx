@@ -16,6 +16,7 @@ import {
   Tv
 } from 'lucide-react';
 import { CertificateGenerator } from './CertificateGenerator';
+import { QuizzesArea } from './QuizzesArea';
 import { Lesson, Module } from '../types';
 
 export const CoursePlayer: React.FC = () => {
@@ -28,13 +29,15 @@ export const CoursePlayer: React.FC = () => {
     markLessonComplete,
     updateLessonProgress,
     addLessonComment,
-    certificates,
-    submitQuizAttempt
+    loadLessonComments,
+    certificates
   } = usePlatform();
 
   const [expandedModules, setExpandedModules] = useState<{ [id: string]: boolean }>({});
   const [activeTab, setActiveTab] = useState<'info' | 'material' | 'comments' | 'quiz'>('info');
   const [commentText, setCommentText] = useState('');
+  const [commentSending, setCommentSending] = useState(false);
+  const [commentError, setCommentError] = useState('');
   const [showCertificate, setShowCertificate] = useState(false);
   const [showVideoPlayButton, setShowVideoPlayButton] = useState(true);
   const [progressSaveState, setProgressSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -43,12 +46,6 @@ export const CoursePlayer: React.FC = () => {
   const [mediaDurationSeconds, setMediaDurationSeconds] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSavedSecondRef = useRef(-1);
-
-  // Quiz active state
-  const [selectedAnswers, setSelectedAnswers] = useState<{ [qId: string]: number }>({});
-  const [submittedQuiz, setSubmittedQuiz] = useState<boolean>(false);
-  const [quizScore, setQuizScore] = useState<number | null>(null);
-  const [quizOutputMessage, setQuizOutputMessage] = useState<string>('');
 
   const course = courses.find(c => c.id === activeCourseId);
   const currentProgress = progressList.find(p => p.courseId === activeCourseId);
@@ -97,11 +94,17 @@ export const CoursePlayer: React.FC = () => {
     );
     setMediaDurationSeconds(activeLesson?.durationSeconds ?? 0);
     lastSavedSecondRef.current = -1;
-    setSubmittedQuiz(false);
-    setSelectedAnswers({});
-    setQuizScore(null);
-    setQuizOutputMessage('');
+    setCommentText('');
+    setCommentError('');
   }, [activeLessonId]);
+
+  // Dúvidas vêm do backend; carrega ao abrir a aba.
+  useEffect(() => {
+    if (activeTab !== 'comments' || !activeCourseId || !activeLessonId) return;
+    loadLessonComments(activeCourseId, activeLessonId).catch((error) => {
+      setCommentError(error instanceof Error ? error.message : 'Não foi possível carregar as dúvidas.');
+    });
+  }, [activeTab, activeCourseId, activeLessonId]);
 
   if (!course) {
     return (
@@ -173,11 +176,20 @@ export const CoursePlayer: React.FC = () => {
     setExpandedModules(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handlePostComment = (e: React.FormEvent) => {
+  const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!commentText.trim() || !activeLesson) return;
-    addLessonComment(course.id, activeLesson.id, commentText);
-    setCommentText('');
+    if (!commentText.trim() || !activeLesson || commentSending) return;
+
+    setCommentSending(true);
+    setCommentError('');
+    try {
+      await addLessonComment(course.id, activeLesson.id, commentText.trim());
+      setCommentText('');
+    } catch (error) {
+      setCommentError(error instanceof Error ? error.message : 'Não foi possível publicar sua dúvida.');
+    } finally {
+      setCommentSending(false);
+    }
   };
 
   const saveVideoProgress = async (seconds: number, totalSeconds: number) => {
@@ -209,36 +221,6 @@ export const CoursePlayer: React.FC = () => {
       setProgressSaveState('error');
       setProgressSaveError(error instanceof Error ? error.message : 'Não foi possível salvar o status.');
     }
-  };
-
-  // Quiz submission validation
-  const handleAnswerSelect = (qId: string, optionIndex: number) => {
-    setSelectedAnswers(prev => ({ ...prev, [qId]: optionIndex }));
-  };
-
-  const handleQuizSubmit = (quiz: any) => {
-    const totalQuestions = quiz.questions.length;
-    let correct = 0;
-    
-    quiz.questions.forEach((q: any) => {
-      if (selectedAnswers[q.id] === q.correctOptionIndex) {
-        correct++;
-      }
-    });
-
-    const scorePct = Math.round((correct / totalQuestions) * 100);
-    const passed = scorePct >= quiz.minScoreToPass;
-
-    setQuizScore(scorePct);
-    setSubmittedQuiz(true);
-    
-    if (passed) {
-      setQuizOutputMessage(`Parabéns! Você passou com ${scorePct}%! A nota mínima para liberação de selo oficial era de ${quiz.minScoreToPass}%`);
-    } else {
-      setQuizOutputMessage(`Infelizmente você não atingiu a nota mínima. Conseguiu ${scorePct}%, mas precisava de ${quiz.minScoreToPass}% para aprovação. tente novamente!`);
-    }
-
-    submitQuizAttempt(course.id, quiz.id, quiz.questions.map((q: any) => selectedAnswers[q.id] ?? -1), scorePct, passed);
   };
 
   return (
@@ -420,7 +402,7 @@ export const CoursePlayer: React.FC = () => {
                   { id: 'info', label: 'Ementa' },
                   { id: 'material', label: `Materiais (${activeLesson.materials.length})` },
                   { id: 'comments', label: `Dúvidas (${activeLesson.comments.length})` },
-                  { id: 'quiz', label: activeModule?.quiz ? 'Teste do Módulo' : 'Sem Teste' }
+                  { id: 'quiz', label: 'Testes' }
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -501,14 +483,19 @@ export const CoursePlayer: React.FC = () => {
                       placeholder="Tire suas dúvidas ou comente com os professores sobre a aula..."
                       className="flex-1 bg-[#090d16] border border-[#1b253b] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                     />
-                    <button 
+                    <button
                       type="submit"
-                      className="bg-indigo-600 hover:bg-indigo-500 hover:scale-102 transition text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-indigo-400/20"
+                      disabled={commentSending || !commentText.trim()}
+                      className="bg-indigo-600 hover:bg-indigo-500 hover:scale-102 transition text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer border border-indigo-400/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      Postar
+                      {commentSending ? 'Postando...' : 'Postar'}
                     </button>
                   </form>
+
+                  {commentError && (
+                    <p className="text-xs text-red-400">{commentError}</p>
+                  )}
 
                   {/* Comment List */}
                   <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
@@ -537,92 +524,10 @@ export const CoursePlayer: React.FC = () => {
                 </div>
               )}
 
-              {/* Tab: Quiz de módulo */}
+              {/* Tab: Testes do curso (backend: /api/v1/quizzes) */}
               {activeTab === 'quiz' && (
-                <div className="bg-[#0e1424] p-6 rounded-2xl border border-[#1b253b]/80 space-y-4 shadow-md">
-                  {activeModule?.quiz ? (
-                    <div className="space-y-6">
-                      <div className="border-b border-[#1b253b]/50 pb-3 flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-bold text-gray-200">{activeModule.quiz.title}</h4>
-                          <p className="text-[10px] text-gray-500 mt-1">Este teste avalia o conhecimento consolidado no módulo.</p>
-                        </div>
-                        <span className="text-[10px] bg-yellow-500/10 text-yellow-400 px-3 py-1 rounded font-bold border border-yellow-500/20 font-mono">
-                          Min: {activeModule.quiz.minScoreToPass}%
-                        </span>
-                      </div>
-
-                      {/* Questions list */}
-                      <div className="space-y-6">
-                        {activeModule.quiz.questions.map((q, qIndex) => (
-                          <div key={q.id} className="space-y-3">
-                            <span className="text-[9px] text-indigo-400 uppercase tracking-widest font-bold font-mono">Questão {qIndex + 1} de {activeModule.quiz?.questions.length}</span>
-                            <p className="text-xs md:text-sm font-bold text-gray-200">{q.question}</p>
-                            
-                            <div className="grid grid-cols-1 gap-2.5">
-                              {q.options.map((opt, optIdx) => {
-                                const isSelected = selectedAnswers[q.id] === optIdx;
-                                const showCorrect = submittedQuiz && optIdx === q.correctOptionIndex;
-                                const showWrong = submittedQuiz && isSelected && optIdx !== q.correctOptionIndex;
-                                
-                                return (
-                                  <button
-                                    key={optIdx}
-                                    type="button"
-                                    onClick={() => !submittedQuiz && handleAnswerSelect(q.id, optIdx)}
-                                    disabled={submittedQuiz}
-                                    className={`text-left p-3.5 rounded-xl text-xs transition border cursor-pointer ${
-                                      showCorrect 
-                                      ? 'bg-emerald-950/40 border-emerald-500 text-emerald-300'
-                                      : showWrong
-                                      ? 'bg-rose-950/40 border-rose-500 text-rose-300'
-                                      : isSelected
-                                      ? 'bg-indigo-500/15 border-indigo-550 border-indigo-500 text-white font-semibold'
-                                      : 'bg-[#090d16] border-[#1b253b] text-gray-400 hover:border-gray-700'
-                                    }`}
-                                  >
-                                    <span className="mr-2 opacity-85 font-mono">[{String.fromCharCode(65 + optIdx)}]</span> {opt}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {submittedQuiz ? (
-                        <div className={`p-4 rounded-xl border ${quizScore! >= activeModule.quiz.minScoreToPass ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-rose-950/20 border-rose-500/30'} text-left`}>
-                          <p className="font-bold text-xs text-gray-205 flex items-center gap-1.5">
-                            <HelpCircle className="w-4 h-4 text-gray-400" />
-                            Resultado: {quizScore}% {quizScore! >= activeModule.quiz.minScoreToPass ? 'Aprovado! 🎉' : 'Reprovado 😭'}
-                          </p>
-                          <p className="text-xs text-gray-455 text-gray-400 mt-1 leading-relaxed">{quizOutputMessage}</p>
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              setSubmittedQuiz(false);
-                              setSelectedAnswers({});
-                              setQuizScore(null);
-                            }}
-                            className="mt-3 text-xs text-[#818cf8] underline font-bold cursor-pointer inline-block"
-                          >
-                            Refazer Questionário
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleQuizSubmit(activeModule?.quiz)}
-                          disabled={Object.keys(selectedAnswers).length < activeModule.quiz.questions.length}
-                          className="w-full bg-indigo-600 hover:bg-indigo-500 border-none font-bold text-xs text-white py-3 rounded-xl disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
-                        >
-                          Enviar Respostas do Teste
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-gray-500 italic text-center py-4">Este módulo não possui questionários de múltipla escolha.</p>
-                  )}
+                <div className="bg-[#0e1424] p-6 rounded-2xl border border-[#1b253b]/80 shadow-md">
+                  <QuizzesArea courseId={course.id} />
                 </div>
               )}
 

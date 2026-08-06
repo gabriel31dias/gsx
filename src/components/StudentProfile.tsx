@@ -574,6 +574,36 @@ export const StudentProfile: React.FC = () => {
                 </div>
               )}
 
+              {/* Cartão salvo da assinatura recorrente */}
+              {billing?.payment_method && (
+                <div className="bg-[#090d16]/50 border border-[#1b253b] p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-14 items-center justify-center rounded-lg border border-[#1b253b] bg-[#0e1424]">
+                      <CreditCard className="h-5 w-5 text-indigo-400" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-black text-white uppercase tracking-tight">
+                        {billing.payment_method.brand ?? 'Cartão'} •••• {billing.payment_method.last4}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {billing.payment_method.holder_name}
+                        {billing.payment_method.expiration && <> · validade {billing.payment_method.expiration}</>}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="sm:text-right">
+                    <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase font-mono">
+                      Renovação automática
+                    </span>
+                    {billing.payment_method.next_charge_at && (
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        Próxima cobrança em {formatActivityDate(billing.payment_method.next_charge_at)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Invoices Logs list (reais) */}
               <div className="space-y-3">
                 <h4 className="font-bold text-[10px] text-gray-400 uppercase tracking-widest text-left font-mono">Pagamentos Realizados</h4>

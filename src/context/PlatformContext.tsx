@@ -49,6 +49,8 @@ interface PlatformContextProps {
   
   // User Actions
   updateProfile: (name: string, email: string, avatar: string) => void;
+  uploadAvatar: (file: File) => Promise<string | null>;
+  removeAvatar: () => Promise<void>;
   changePassword: (newPass: string) => boolean;
   toggleFavorite: (courseId: string) => void;
   updateUserRole: (id: string, role: UserRole) => void;
@@ -228,6 +230,10 @@ const mapApiCourse = (course: ApiCourse, index: number): Course => ({
   },
 });
 
+// Foto padrão de quem ainda não enviou a sua.
+export const DEFAULT_AVATAR =
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+
 const normalizeBackendUrl = (url: string | null) => {
   if (!url) return null;
 
@@ -241,6 +247,14 @@ const normalizeBackendUrl = (url: string | null) => {
   }
 
   return url;
+};
+
+// Anexos do Active Storage vêm como caminho relativo (/rails/active_storage/...).
+// Em produção o front está em outro domínio, então prefixa com a base da API.
+const assetUrl = (url: string | null) => {
+  const normalized = normalizeBackendUrl(url);
+  if (!normalized) return null;
+  return normalized.startsWith('/') ? `${API_BASE_URL}${normalized}` : normalized;
 };
 
 const formatLessonDuration = (minutes: number) => {
@@ -312,7 +326,7 @@ const DEFAULT_USERS: UserProfile[] = [
 ];
 
 export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { session } = useAuth();
+  const { session, refreshUser } = useAuth();
   const authenticatedUser = session?.user;
 
   const [courses, setCourses] = useState<Course[]>([]);
@@ -682,6 +696,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       name: authenticatedUser.name,
       email: authenticatedUser.email,
       role: authenticatedUser.role.toLowerCase() === 'admin' ? UserRole.ADMIN : UserRole.STUDENT,
+      // Sem foto enviada, mantém o avatar atual (fallback local).
+      avatar: assetUrl(authenticatedUser.avatar_url ?? null) ?? current.avatar,
     }));
   }, [authenticatedUser]);
 
@@ -733,6 +749,40 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       date: new Date().toLocaleString('pt-BR')
     };
     setActivityLogs(prev => [newLog, ...prev]);
+  };
+
+  // Envia a foto de perfil (multipart) e propaga a URL nova pro app inteiro.
+  const uploadAvatar = async (file: File) => {
+    if (!session?.token) throw new Error('Sessão expirada.');
+
+    const body = new FormData();
+    body.append('avatar', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/profile/avatar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.token}` },
+      body,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || (data.errors && data.errors[0]) || 'Falha ao enviar a foto.');
+
+    const url = assetUrl(data.avatar_url ?? null);
+    if (url) setCurrentUser((current) => ({ ...current, avatar: url }));
+    void refreshUser().catch(() => {});
+    return url;
+  };
+
+  const removeAvatar = async () => {
+    if (!session?.token) throw new Error('Sessão expirada.');
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/profile/avatar`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session.token}` },
+    });
+    if (!response.ok) throw new Error('Falha ao remover a foto.');
+
+    setCurrentUser((current) => ({ ...current, avatar: DEFAULT_AVATAR }));
+    void refreshUser().catch(() => {});
   };
 
   const updateProfile = (name: string, email: string, avatar: string) => {
@@ -1023,7 +1073,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const mapApiComment = (c: ApiLessonComment): Comment => ({
     id: String(c.id),
     userName: c.user?.name || 'Aluno',
-    userAvatar: normalizeBackendUrl(c.user?.avatar_url ?? null) ?? undefined,
+    userAvatar: assetUrl(c.user?.avatar_url ?? null) ?? undefined,
     content: c.content,
     date: new Date(c.created_at).toLocaleDateString('pt-BR'),
   });
@@ -1156,6 +1206,8 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       refreshBilling,
       navigateTo,
       updateProfile,
+      uploadAvatar,
+      removeAvatar,
       changePassword,
       toggleFavorite,
       updateUserRole,

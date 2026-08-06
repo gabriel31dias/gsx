@@ -49,6 +49,7 @@ export interface AuthUser {
   role: string;
   owner_id?: string | null;
   current_plan_id?: string | null;
+  avatar_url?: string | null;
 }
 
 interface AuthSession {

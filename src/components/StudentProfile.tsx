@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { usePlatform } from '../context/PlatformContext';
+import React, { useEffect, useRef, useState } from 'react';
+import { DEFAULT_AVATAR, usePlatform } from '../context/PlatformContext';
 import { 
   User, 
   Mail, 
@@ -17,6 +17,7 @@ import {
   Crown,
   LogIn,
   PlayCircle,
+  Loader2,
   RefreshCw
 } from 'lucide-react';
 import { CertificateGenerator } from './CertificateGenerator';
@@ -44,6 +45,8 @@ export const StudentProfile: React.FC = () => {
     billing,
     billingLoading,
     refreshBilling,
+    uploadAvatar,
+    removeAvatar,
   } = usePlatform();
 
   const xp = xpProgress;
@@ -52,12 +55,20 @@ export const StudentProfile: React.FC = () => {
   const [name, setName] = useState(currentUser.name);
   const [email, setEmail] = useState(currentUser.email);
   const [avatar, setAvatar] = useState(currentUser.avatar);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
 
   const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'badges' | 'history' | 'billing'>('profile');
   const [selectedCertCourseId, setSelectedCertCourseId] = useState<string | null>(null);
+
+  // A foto chega depois do /auth/me: acompanha o contexto enquanto o usuário não mexe.
+  useEffect(() => {
+    setAvatar(currentUser.avatar);
+  }, [currentUser.avatar]);
 
   useEffect(() => {
     if (activeTab === 'history') {
@@ -124,16 +135,44 @@ export const StudentProfile: React.FC = () => {
     alert("Senha interna modificada com sucesso!");
   };
 
-  const handleAvatarSelect = () => {
-    const avatars = [
-      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
-    ];
-    const nextIdx = (avatars.indexOf(avatar) + 1) % avatars.length;
-    setAvatar(avatars[nextIdx]);
+  // Upload da foto de perfil: valida no cliente e deixa o back validar de novo.
+  const handleAvatarFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // permite reenviar o mesmo arquivo
+    if (!file) return;
+
+    setAvatarError('');
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Escolha um arquivo de imagem.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('A imagem precisa ter no máximo 5MB.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const url = await uploadAvatar(file);
+      if (url) setAvatar(url);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Falha ao enviar a foto.');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    setAvatarError('');
+    setAvatarUploading(true);
+    try {
+      await removeAvatar();
+      setAvatar(DEFAULT_AVATAR);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Falha ao remover a foto.');
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const favoriteCourses = courses.filter(c => favoriteCourseIds.includes(c.id));
@@ -144,20 +183,53 @@ export const StudentProfile: React.FC = () => {
       {/* Profile Header Card */}
       <div className="bg-[#0e1424] border border-[#1b253b]/80 rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl">
         <div className="flex flex-col md:flex-row items-center gap-6 z-10">
-          {/* Avatar frame */}
-          <div className="relative group cursor-pointer" onClick={handleAvatarSelect}>
-            <img 
-              referrerPolicy="no-referrer"
-              src={avatar} 
-              alt={currentUser.name} 
-              className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/30 shadow-xl"
+          {/* Avatar: clique abre o seletor de arquivo e envia pro back */}
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              title="Trocar foto de perfil"
+              className="relative group cursor-pointer rounded-2xl disabled:cursor-wait"
+            >
+              <img
+                referrerPolicy="no-referrer"
+                src={avatar}
+                alt={currentUser.name}
+                className="w-24 h-24 rounded-2xl object-cover border-2 border-indigo-500/30 shadow-xl"
+              />
+              <div className={`absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center transition-all ${avatarUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                {avatarUploading
+                  ? <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  : <Camera className="w-5 h-5 text-gray-300" />}
+              </div>
+              <span className="absolute -bottom-1.5 -right-1.5 bg-indigo-600 p-2 rounded-xl font-bold shadow-lg">
+                <Camera className="w-3.5 h-3.5 text-white" />
+              </span>
+            </button>
+
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleAvatarFile}
+              className="hidden"
             />
-            <div className="absolute inset-0 bg-black/60 rounded-2xl opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-              <Camera className="w-5 h-5 text-gray-300" />
-            </div>
-            <span className="absolute -bottom-1.5 -right-1.5 bg-indigo-600 p-2 rounded-xl font-bold shadow-lg" title="Mudar avatar">
-              <Settings className="w-3.5 h-3.5 text-white animate-spin-slow" />
-            </span>
+
+            {avatar !== DEFAULT_AVATAR && (
+              <button
+                type="button"
+                onClick={handleAvatarRemove}
+                disabled={avatarUploading}
+                className="text-[10px] font-bold text-gray-500 hover:text-red-400 transition disabled:opacity-50"
+              >
+                Remover foto
+              </button>
+            )}
+
+            {avatarError && (
+              <p className="max-w-[8rem] text-center text-[10px] text-red-400">{avatarError}</p>
+            )}
           </div>
 
           <div className="text-center md:text-left space-y-2">

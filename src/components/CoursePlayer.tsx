@@ -256,11 +256,16 @@ export const CoursePlayer: React.FC = () => {
             <div className="relative aspect-[16/9] w-full bg-[#090d16] rounded-2xl overflow-hidden border border-[#1b253b]/80 shadow-2xl group/player">
               {activeLesson.videoFileUrl ? (
                 <>
+                  {/* ponytail: barra o download casual (menu do player / botão direito).
+                      Extensão que fareja a rede ainda captura — só HLS + DRM sobe essa barra. */}
                   <video
                     ref={videoRef}
                     key={activeLesson.id}
                     className="h-full w-full bg-black object-contain"
                     controls
+                    controlsList="nodownload noplaybackrate"
+                    disablePictureInPicture
+                    onContextMenu={(event) => event.preventDefault()}
                     preload="metadata"
                     poster={course.coverImage}
                     onPlay={() => setShowVideoPlayButton(false)}

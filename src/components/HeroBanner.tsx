@@ -6,6 +6,8 @@ interface HeroBannerProps {
   onSearchChange: (query: string) => void;
 }
 
+const DEFAULT_MEMBER_WALLPAPER = '/default-member-wallpaper.jpg';
+
 const ALLOWED_HTML_TAGS = new Set([
   'A',
   'B',
@@ -63,6 +65,7 @@ const sanitizeHtml = (html: string) => {
 export const HeroBanner: React.FC<HeroBannerProps> = ({ onSearchChange }) => {
   const [searchVal, setSearchVal] = useState('');
   const { theme } = useAuth();
+  const wallpaper = theme.wallpaperUrl || DEFAULT_MEMBER_WALLPAPER;
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchVal(e.target.value);
@@ -71,21 +74,15 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ onSearchChange }) => {
 
   return (
     <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#0e1628] via-[#090d16] to-[#09090b] border-b border-[#1b253b]/65 text-white">
-      {theme.wallpaperUrl && (
-        <img
-          src={theme.wallpaperUrl}
-          alt=""
-          className="absolute inset-0 z-0 h-full w-full object-cover opacity-55"
-          referrerPolicy="no-referrer"
-          aria-hidden="true"
-        />
-      )}
-      {theme.wallpaperUrl && (
-        <div className="absolute inset-0 z-0 bg-gradient-to-r from-[#090d16] via-[#090d16]/85 to-[#090d16]/55" />
-      )}
-      {theme.wallpaperUrl && (
-        <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#0e1628]/65 via-transparent to-[#09090b]/90" />
-      )}
+      <img
+        src={wallpaper}
+        alt=""
+        className="absolute inset-0 z-0 h-full w-full object-cover opacity-55"
+        referrerPolicy="no-referrer"
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 z-0 bg-gradient-to-r from-[#090d16] via-[#090d16]/85 to-[#090d16]/55" />
+      <div className="absolute inset-0 z-0 bg-gradient-to-b from-[#0e1628]/65 via-transparent to-[#09090b]/90" />
       {/* Background Cover Overlay Decorative Vector Mesh */}
       <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
         <div className="theme-glow-primary absolute -top-40 -left-40 w-96 h-96 rounded-full mix-blend-screen filter blur-[120px] opacity-40 animate-pulse" />

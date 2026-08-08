@@ -17,6 +17,7 @@ import { LiveStreamArea } from './components/LiveStreamArea';
 import { GamificationRanking } from './components/GamificationRanking';
 import { PlansArea } from './components/PlansArea';
 import { QuizzesArea } from './components/QuizzesArea';
+import { AchievementsArea } from './components/AchievementsArea';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginScreen } from './components/LoginScreen';
 
@@ -27,6 +28,7 @@ function DashboardScreen() {
     coursesError,
     refreshCourses,
   } = usePlatform();
+  const { theme } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Search Filter logic on title/description/instructor/category
@@ -99,8 +101,8 @@ function DashboardScreen() {
 
       {/* Footer Branding stamp */}
       <footer className="pt-20 pb-4 text-center text-[11px] text-gray-500 font-mono tracking-widest max-w-xl mx-auto border-t border-[#1b253b]/40 leading-relaxed">
-        <p>© 2026 ALURADEV WORKSPACE. TODOS OS DIREITOS RESERVADOS.</p>
-        <p className="text-[10px] text-gray-600 mt-1 uppercase">Plataforma Avançada de Treinamento e Carreira Técnico-Científica.</p>
+        <p>{theme.footerText}</p>
+        <p className="text-[10px] text-gray-600 mt-1 uppercase">{theme.footerSubtext}</p>
       </footer>
 
     </div>
@@ -131,6 +133,7 @@ function MainScreenShell() {
           {activeScreen === 'live' && <LiveStreamArea />}
           {activeScreen === 'plans' && <PlansArea />}
           {activeScreen === 'quizzes' && <QuizzesArea />}
+          {activeScreen === 'achievements' && <AchievementsArea />}
         </main>
       </div>
     </div>

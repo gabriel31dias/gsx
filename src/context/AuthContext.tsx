@@ -13,6 +13,11 @@ export interface PlatformTheme {
   mutedTextColor: string;
   logoUrl: string | null;
   wallpaperUrl: string | null;
+  loginWallpaperUrl: string | null;
+  instructorPhotoUrl: string | null;
+  instructorName: string;
+  footerText: string;
+  footerSubtext: string;
   memberAreaTitle: string;
   primaryDescription: string;
   secondaryDescription: string;
@@ -32,6 +37,11 @@ const DEFAULT_THEME: PlatformTheme = {
   mutedTextColor: '#8b97ad',
   logoUrl: null,
   wallpaperUrl: null,
+  loginWallpaperUrl: null,
+  instructorPhotoUrl: null,
+  instructorName: 'Nome professor',
+  footerText: '© 2026 BLUE VISION WORKSPACE. TODOS OS DIREITOS RESERVADOS.',
+  footerSubtext: 'Plataforma Avançada de Treinamento e Carreira Técnico-Científica.',
   memberAreaTitle: 'CATÁLOGO OFICIAL ALURADEV',
   primaryDescription: 'Aprenda no seu ritmo. Evolua com prática.',
   secondaryDescription: 'Consulte abaixo somente os cursos disponíveis para sua conta, carregados diretamente da plataforma.',
@@ -100,6 +110,11 @@ interface ThemeColorsResponse {
   muted_text_color?: string;
   logo_url?: string | null;
   wallpaper_url?: string | null;
+  login_wallpaper_url?: string | null;
+  instructor_photo_url?: string | null;
+  instructor_name?: string;
+  footer_text?: string;
+  footer_subtext?: string;
   member_area_title?: string;
   primary_description?: string;
   secondary_description?: string;
@@ -157,6 +172,11 @@ function readStoredTheme(): PlatformTheme {
       mutedTextColor: isHexColor(theme.mutedTextColor) ? theme.mutedTextColor : DEFAULT_THEME.mutedTextColor,
       logoUrl: normalizeAssetUrl(theme.logoUrl),
       wallpaperUrl: normalizeAssetUrl(theme.wallpaperUrl),
+      loginWallpaperUrl: normalizeAssetUrl(theme.loginWallpaperUrl),
+      instructorPhotoUrl: normalizeAssetUrl(theme.instructorPhotoUrl),
+      instructorName: normalizeThemeText(theme.instructorName, DEFAULT_THEME.instructorName),
+      footerText: normalizeThemeText(theme.footerText, DEFAULT_THEME.footerText),
+      footerSubtext: normalizeThemeText(theme.footerSubtext, DEFAULT_THEME.footerSubtext),
       memberAreaTitle: normalizeThemeText(theme.memberAreaTitle, DEFAULT_THEME.memberAreaTitle),
       primaryDescription: normalizeThemeText(theme.primaryDescription, DEFAULT_THEME.primaryDescription),
       secondaryDescription: normalizeThemeText(theme.secondaryDescription, DEFAULT_THEME.secondaryDescription),
@@ -181,6 +201,8 @@ function applyTheme(theme: PlatformTheme) {
   root.style.setProperty('--theme-text', theme.textColor);
   root.style.setProperty('--theme-muted-text', theme.mutedTextColor);
   root.classList.add('dynamic-theme');
+  // ponytail: título da aba = título cadastrado nas configs da área de membros
+  document.title = theme.memberAreaTitle;
 }
 
 function readStoredSession(): AuthSession | null {
@@ -275,6 +297,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             : DEFAULT_THEME.mutedTextColor,
           logoUrl: normalizeAssetUrl(colors.logo_url ?? data.theme.logo_url),
           wallpaperUrl: normalizeAssetUrl(colors.wallpaper_url ?? data.theme.wallpaper_url),
+          loginWallpaperUrl: normalizeAssetUrl(
+            colors.login_wallpaper_url ?? data.theme.login_wallpaper_url,
+          ),
+          instructorPhotoUrl: normalizeAssetUrl(
+            colors.instructor_photo_url ?? data.theme.instructor_photo_url,
+          ),
+          instructorName: normalizeThemeText(
+            data.theme.instructor_name,
+            DEFAULT_THEME.instructorName,
+          ),
+          footerText: normalizeThemeText(data.theme.footer_text, DEFAULT_THEME.footerText),
+          footerSubtext: normalizeThemeText(
+            data.theme.footer_subtext,
+            DEFAULT_THEME.footerSubtext,
+          ),
           memberAreaTitle: normalizeThemeText(
             data.theme.member_area_title,
             DEFAULT_THEME.memberAreaTitle,

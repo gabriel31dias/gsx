@@ -264,7 +264,7 @@ export const QuizzesArea: React.FC<QuizzesAreaProps> = ({ courseId }) => {
 
   // --- Lista ---
   return (
-    <div className={courseId ? '' : 'mx-auto max-w-4xl px-4 py-8'}>
+    <div className={courseId ? '' : 'w-full px-4 py-8 lg:px-10'}>
       {!courseId && (
         <>
           <h1 className="text-2xl font-extrabold text-white">Testes</h1>
@@ -282,7 +282,7 @@ export const QuizzesArea: React.FC<QuizzesAreaProps> = ({ courseId }) => {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {quizzes.map((summary) => (
             <div key={summary.id} className="rounded-2xl border border-[#1b253b] bg-[#0b101e]/90 p-5">
               <h2 className="font-bold text-white">{summary.title}</h2>

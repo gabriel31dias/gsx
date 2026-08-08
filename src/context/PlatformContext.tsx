@@ -31,7 +31,7 @@ interface PlatformContextProps {
   coursesError: string | null;
   lessonsLoadingCourseId: string | null;
   lessonsError: string | null;
-  activeScreen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes';
+  activeScreen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes' | 'achievements';
   activeCourseId: string | null;
   activeLessonId: string | null;
   refreshCourses: () => Promise<void>;
@@ -45,7 +45,7 @@ interface PlatformContextProps {
   refreshBilling: () => Promise<void>;
 
   // Navigation & View Actions
-  navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes', courseId?: string | null, lessonId?: string | null) => void;
+  navigateTo: (screen: 'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes' | 'achievements', courseId?: string | null, lessonId?: string | null) => void;
   
   // User Actions
   updateProfile: (name: string, email: string, avatar: string) => void;
@@ -88,6 +88,7 @@ interface ApiCourse {
   total_lessons: number;
   has_access?: boolean;
   plans?: { id: number; name: string }[];
+  materials?: { id: number; title: string; url: string; is_downloadable: boolean }[];
   progress: {
     completed_lessons: number;
     percentage: number | string;
@@ -210,7 +211,8 @@ const mapApiCourse = (course: ApiCourse, index: number): Course => ({
   id: String(course.id),
   title: course.title,
   description: course.description,
-  instructor: 'Equipe AluraDev',
+  // ponytail: nome real vem do tema (theme.instructorName); isto é só fallback de busca
+  instructor: 'Nome professor',
   duration: 'Acesso sob demanda',
   category: 'Desenvolvimento',
   coverImage: course.photo_url
@@ -223,6 +225,13 @@ const mapApiCourse = (course: ApiCourse, index: number): Course => ({
   totalLessons: course.total_lessons,
   isLocked: course.has_access === false,
   requiredPlans: (course.plans ?? []).map((plan) => ({ id: String(plan.id), name: plan.name })),
+  materials: (course.materials ?? []).map((material) => ({
+    id: String(material.id),
+    // Arquivo enviado vem como caminho relativo do Rails; link externo já é absoluto.
+    url: material.url.startsWith('http') ? material.url : `${API_BASE_URL}${material.url}`,
+    title: material.title,
+    isDownloadable: material.is_downloadable,
+  })),
   apiProgress: {
     completedLessons: course.progress.completed_lessons,
     percentage: Number(course.progress.percentage) || 0,
@@ -393,7 +402,7 @@ export const PlatformProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   });
 
   // UI routing helper
-  const [activeScreen, setActiveScreen] = useState<'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes'>('home');
+  const [activeScreen, setActiveScreen] = useState<'home' | 'learning' | 'profile' | 'admin' | 'ranking' | 'live' | 'plans' | 'quizzes' | 'achievements'>('home');
   const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 

@@ -227,7 +227,7 @@ export const CheckoutScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => 
       />
     </label>
   );
-  const loginWallpaper = theme.wallpaperUrl || DEFAULT_LOGIN_WALLPAPER;
+  const loginWallpaper = theme.loginWallpaperUrl || DEFAULT_LOGIN_WALLPAPER;
   const secondaryButtonClass = 'flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#202b42] px-4 py-2.5 text-sm font-bold text-gray-300 transition hover:border-indigo-500/50 hover:bg-white/5 hover:text-white';
   const primaryButtonClass = 'theme-gradient flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-extrabold transition hover:brightness-110';
   const stepBack = () => {

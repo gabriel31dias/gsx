@@ -51,7 +51,7 @@ export const LoginScreen: React.FC = () => {
   const [errorCode, setErrorCode] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
-  const loginWallpaper = theme.wallpaperUrl || DEFAULT_LOGIN_WALLPAPER;
+  const loginWallpaper = theme.loginWallpaperUrl || DEFAULT_LOGIN_WALLPAPER;
 
   const parseApiError = (data: { error?: string; errors?: string[]; message?: string }) => (
     data.error || data.errors?.[0] || data.message || 'Não foi possível completar a solicitação.'

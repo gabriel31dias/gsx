@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Course } from '../types';
-import { Play, Heart, Star, BookOpen, Clock, ChevronRight, Lock } from 'lucide-react';
+import { Play, Heart, Star, BookOpen, Clock, ChevronRight, Lock, User } from 'lucide-react';
 import { usePlatform } from '../context/PlatformContext';
+import { useAuth } from '../context/AuthContext';
 
 interface CourseCarouselProps {
   title: string;
@@ -18,6 +19,7 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
     loadCourseLessons,
     lessonsLoadingCourseId,
   } = usePlatform();
+  const { theme } = useAuth();
   const [openError, setOpenError] = useState<string | null>(null);
 
   const getCourseProgressPercentage = (courseId: string) => {
@@ -192,13 +194,19 @@ export const CourseCarousel: React.FC<CourseCarouselProps> = ({ title, coursesLi
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 mb-3.5 pt-2.5 border-t border-[#1b253b]/40">
-                          <img 
-                            referrerPolicy="no-referrer"
-                            src={course.instructorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80'} 
-                            alt={course.instructor} 
-                            className="w-5 h-5 rounded-full object-cover border border-[#1e2a42]"
-                          />
-                          <span className="text-[11px] text-gray-400">Prof. <strong className="text-gray-300 font-semibold">{course.instructor}</strong></span>
+                          {theme.instructorPhotoUrl || course.instructorAvatar ? (
+                            <img
+                              referrerPolicy="no-referrer"
+                              src={theme.instructorPhotoUrl || course.instructorAvatar}
+                              alt={theme.instructorName}
+                              className="w-5 h-5 rounded-full object-cover border border-[#1e2a42]"
+                            />
+                          ) : (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#1e2a42] bg-[#141c2e]">
+                              <User className="h-3 w-3 text-gray-500" />
+                            </span>
+                          )}
+                          <span className="text-[11px] text-gray-400">Prof. <strong className="text-gray-300 font-semibold">{theme.instructorName}</strong></span>
                         </div>
                       )}
 

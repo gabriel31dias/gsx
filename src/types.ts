@@ -78,6 +78,7 @@ export interface Course {
   isPopular?: boolean;
   totalLessons?: number;
   isLocked?: boolean;
+  materials?: { id: string; title: string; url: string; isDownloadable: boolean }[];
   requiredPlans?: { id: string; name: string }[];
   apiProgress?: {
     completedLessons: number;

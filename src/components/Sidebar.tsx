@@ -14,6 +14,7 @@ import {
   Layout,
   Play,
   ClipboardList,
+  Award,
   LogOut
 } from 'lucide-react';
 import { UserRole } from '../types';
@@ -36,6 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     // { id: 'ranking', label: 'Estatísticas & Ranking', icon: Trophy, desc: 'Quadro de líderes de XP' },
     // { id: 'live', label: 'Webinars Ao Vivo', icon: Compass, desc: 'Mentorias e lives ativas' },
     { id: 'quizzes', label: 'Testes', icon: ClipboardList, desc: 'Avaliações de múltipla escolha' },
+    { id: 'achievements', label: 'Minhas Conquistas', icon: Award, desc: 'Medalhas desbloqueadas' },
     { id: 'plans', label: 'Upgrade de Planos', icon: CreditCard, desc: 'Certificações premium' },
   ];
 

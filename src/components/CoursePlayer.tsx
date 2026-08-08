@@ -13,8 +13,12 @@ import {
   ArrowRight,
   HelpCircle,
   FileCode2,
-  Tv
+  Tv,
+  User,
+  Link as LinkIcon,
+  ExternalLink
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { CertificateGenerator } from './CertificateGenerator';
 import { QuizzesArea } from './QuizzesArea';
 import { Lesson, Module } from '../types';
@@ -32,6 +36,8 @@ export const CoursePlayer: React.FC = () => {
     loadLessonComments,
     certificates
   } = usePlatform();
+  const { theme } = useAuth();
+  const instructorPhoto = theme.instructorPhotoUrl || undefined;
 
   const [expandedModules, setExpandedModules] = useState<{ [id: string]: boolean }>({});
   const [activeTab, setActiveTab] = useState<'info' | 'material' | 'comments' | 'quiz'>('info');
@@ -164,6 +170,7 @@ export const CoursePlayer: React.FC = () => {
     : 0;
   const isCourseFullyCompleted = completedCount >= totalLessonsCount && totalLessonsCount > 0;
   const activeLessonProgress = activeLesson ? getLessonProgressPercentage(activeLesson) : 0;
+  const courseMaterials = course?.materials ?? [];
 
   const formatPlaybackTime = (seconds: number) => {
     const safeSeconds = Math.max(0, Math.floor(seconds));
@@ -400,7 +407,7 @@ export const CoursePlayer: React.FC = () => {
               <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none max-w-full border-b border-[#1b253b]/60 p-1 bg-[#0e1424] rounded-xl self-start w-full sm:w-auto shadow-md">
                 {[
                   { id: 'info', label: 'Ementa' },
-                  { id: 'material', label: `Materiais (${activeLesson.materials.length})` },
+                  { id: 'material', label: `Materiais (${courseMaterials.length})` },
                   { id: 'comments', label: `Dúvidas (${activeLesson.comments.length})` },
                   { id: 'quiz', label: 'Testes' }
                 ].map(tab => (
@@ -426,15 +433,21 @@ export const CoursePlayer: React.FC = () => {
                   
                   {/* Instructor brief panel */}
                   <div className="flex items-center gap-3 pt-4 border-t border-[#1b253b]/50 mt-4">
-                    <img 
-                      referrerPolicy="no-referrer"
-                      src={course.instructorAvatar} 
-                      alt={course.instructor} 
-                      className="w-10 h-10 rounded-xl object-cover border border-[#1e2a42]"
-                    />
+                    {instructorPhoto || course.instructorAvatar ? (
+                      <img
+                        referrerPolicy="no-referrer"
+                        src={instructorPhoto || course.instructorAvatar}
+                        alt={theme.instructorName}
+                        className="w-10 h-10 rounded-xl object-cover border border-[#1e2a42]"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#1e2a42] bg-[#141c2e]">
+                        <User className="h-5 w-5 text-gray-500" />
+                      </div>
+                    )}
                     <div>
                       <p className="text-[10px] text-gray-500 font-mono">INSTRUTOR ACADÊMICO</p>
-                      <p className="text-xs font-bold text-gray-200">{course.instructor}</p>
+                      <p className="text-xs font-bold text-gray-200">{theme.instructorName}</p>
                     </div>
                   </div>
                 </div>
@@ -444,27 +457,30 @@ export const CoursePlayer: React.FC = () => {
               {activeTab === 'material' && (
                 <div className="bg-[#0e1424] p-6 rounded-2xl border border-[#1b253b]/80 space-y-4 shadow-md">
                   <h3 className="text-xs font-bold text-gray-200 mb-2">Conteúdo Complementar Anexo</h3>
-                  {activeLesson.materials.length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">Esta aula não possui anexos complementares.</p>
+                  {courseMaterials.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Este curso não possui anexos complementares.</p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {activeLesson.materials.map((m, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3.5 bg-[#090d16] border border-[#1b253b] rounded-xl hover:border-indigo-505 hover:border-indigo-500/30 transition">
+                      {courseMaterials.map((m) => (
+                        <a
+                          key={m.id}
+                          href={m.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          download={m.isDownloadable ? '' : undefined}
+                          className="flex items-center justify-between p-3.5 bg-[#090d16] border border-[#1b253b] rounded-xl hover:border-indigo-500/30 transition"
+                        >
                           <div className="flex items-center gap-3 text-xs">
-                            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-450 text-indigo-300 border border-indigo-500/15">
-                              <FileCode2 className="w-5 h-5" />
+                            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-300 border border-indigo-500/15">
+                              {m.isDownloadable ? <FileCode2 className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
                             </div>
-                            <span className="font-bold text-gray-305 text-gray-300 line-clamp-1">{m.title}</span>
+                            <span className="font-bold text-gray-300 line-clamp-1">{m.title}</span>
                           </div>
-                          
-                          <button 
-                            type="button"
-                            onClick={() => alert("Simulação: Download de repositório concluído com sucesso.")}
-                            className="p-1.5 hover:bg-[#12192c] rounded-lg text-gray-400 hover:text-white transition cursor-pointer"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                        </div>
+
+                          <span className="p-1.5 rounded-lg text-gray-400 transition">
+                            {m.isDownloadable ? <Download className="w-4 h-4" /> : <ExternalLink className="w-4 h-4" />}
+                          </span>
+                        </a>
                       ))}
                     </div>
                   )}
